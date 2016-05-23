@@ -1,4 +1,4 @@
-test_kidney_disease:
+kidney_disease:
   - name: 'first_kidney_transplant_cpt'
     calc: 'first'
     db_key: 'cpt'

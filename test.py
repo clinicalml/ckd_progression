@@ -8,8 +8,8 @@ import tables
 import util
 util = reload(util)
 
-import run
-run = reload(run)
+import ckd
+ckd = reload(ckd)
 
 tests_dir = 'tests/'
 soln_dir = tests_dir + 'soln/'
@@ -78,16 +78,20 @@ def create_db():
 
 	pd.DataFrame({'person': [], 'first_dialysis_cpt': []}).to_csv(soln_dir + 'first_dialysis_cpt.txt', index=False, sep='\t')
 	pd.DataFrame({'person': [], 'first_kidney_transplant_icd9_proc': []}).to_csv(soln_dir + 'first_kidney_transplant_icd9_proc.txt', index=False, sep='\t')
+	pd.DataFrame({'person': [people[0]], 'first_kidney_failure': ['20090401']}).to_csv(soln_dir + 'first_kidney_failure.txt', index=False, sep='\t')
 
 	# 3225 = 33914-3 (GFR), 4026 = 48642-3 (GFR), 4027 = 48643-1 (GFR), 1909 = 2160-0 (Creatinine)
 	loinc_db = add_person(loinc_db, loincs, people[0], np.array(['20100101','20110101'], dtype=object), [1, 1, 1], [3225,4026,4027], [0, 1, 1])
 	loinc_vals_db = add_person(loinc_vals_db, loincs, people[0], np.array(['20100101','20110101'], dtype=object), [30, 16, 40], [3225,4026,4027], [0, 1, 1])
 
-	loinc_db = add_person(loinc_db, loincs, people[1], np.array(['20100101','20100501'], dtype=object), [1, 1], [3225,4026], [0, 1])
-	loinc_vals_db = add_person(loinc_vals_db, loincs, people[1], np.array(['20100101','20100501'], dtype=object), [25, 18], [3225,4026], [0, 1])
+	loinc_db = add_person(loinc_db, loincs, people[1], np.array(['20100101','20100501', '20100901', '20101101'], dtype=object), [1, 1, 1, 1], [3225, 4026, 4026, 4026], [0, 1, 2, 3])
+	loinc_vals_db = add_person(loinc_vals_db, loincs, people[1], np.array(['20100101','20100501', '20100901', '20101101'], dtype=object), [25, 18, 20, 22], [3225, 4026, 4026, 4026], [0, 1, 2, 3])
 
 	pd.DataFrame({'person': [people[0], people[1]], 'min_gfr': [16.0, 18.0], 'age': [20, 40], 'gender': ['M', 'F']}).to_csv(soln_dir + 'min_gfr.txt', index=False, sep='\t')
-	pd.DataFrame({'person': [people[1]], 'n_gap_stage45': [2]}).to_csv(soln_dir + 'n_gap_stage45.txt', index=False, sep='\t')
+	pd.DataFrame({'person': [people[1]], 'n_gap_stage45': [4]}).to_csv(soln_dir + 'n_gap_stage45.txt', index=False, sep='\t')
+
+	td = {'person': [people[1]], 'training_start_date': ['20100101'], 'training_end_date': ['20101227'], 'outcome_start_date': ['20110327'], 'outcome_end_date': ['20120321'], 'y': [0]}
+	pd.DataFrame(td).to_csv(soln_dir + 'training_data.txt', index=False, sep='\t')
 
 	loinc_db.close()
 	loinc_vals_db.close()
@@ -108,25 +112,19 @@ def test():
 	out_dir = tests_dir + 'kidney_disease/'
 	test_data_paths_fname = tests_dir + 'test_data_paths.yaml'
 	test_stats_list_fname = tests_dir + 'test_stats.yaml'
-	stats_key = 'test_kidney_disease'
-	demographics_fname = 'tests/test_demographics.txt'
-	outcome_stat_name = 'first_dialysis'
-	cohort_stat_name = 'n_gap_stage45'
 
-	run.run(out_dir, test_data_paths_fname, test_stats_list_fname, stats_key, check_if_file_exists=False, verbose=False)
+	ckd.run(out_dir, test_data_paths_fname, test_stats_list_fname, check_if_file_exists=False, verbose=False)
 
 	test_soln_fnames = []
-	test_soln_fnames.append(('test_kidney_disease_first_dialysis_cpt.txt', 'first_dialysis_cpt.txt'))
-	test_soln_fnames.append(('test_kidney_disease_first_kidney_transplant_cpt.txt', 'first_kidney_transplant_cpt.txt'))
-	test_soln_fnames.append(('test_kidney_disease_first_dialysis_icd9_proc.txt', 'first_dialysis_icd9_proc.txt'))
-	test_soln_fnames.append(('test_kidney_disease_first_kidney_transplant_icd9_proc.txt', 'first_kidney_transplant_icd9_proc.txt'))
-	test_soln_fnames.append(('test_kidney_disease_min_gfr.txt', 'min_gfr.txt'))
-	test_soln_fnames.append(('test_kidney_disease_n_gap_stage45.txt', 'n_gap_stage45.txt'))
-
+	test_soln_fnames.append(('kidney_disease_first_dialysis_cpt.txt', 'first_dialysis_cpt.txt'))
+	test_soln_fnames.append(('kidney_disease_first_kidney_transplant_cpt.txt', 'first_kidney_transplant_cpt.txt'))
+	test_soln_fnames.append(('kidney_disease_first_dialysis_icd9_proc.txt', 'first_dialysis_icd9_proc.txt'))
+	test_soln_fnames.append(('kidney_disease_first_kidney_transplant_icd9_proc.txt', 'first_kidney_transplant_icd9_proc.txt'))
+	test_soln_fnames.append(('kidney_disease_min_gfr.txt', 'min_gfr.txt'))
+	test_soln_fnames.append(('kidney_disease_n_gap_stage45.txt', 'n_gap_stage45.txt'))
+	test_soln_fnames.append(('kidney_disease_first_kidney_failure.txt', 'first_kidney_failure.txt'))
+	test_soln_fnames.append(('kidney_disease_training_data.txt', 'training_data.txt'))
 	for test_fname, soln_fname in test_soln_fnames:
 		a = pd.read_csv(out_dir + test_fname, sep='\t', dtype=str)
 		b = pd.read_csv(soln_dir + soln_fname, sep='\t', dtype=str)
 		assert_equals(a, b)
-
-
-
