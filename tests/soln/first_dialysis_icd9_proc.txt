@@ -1,0 +1,2 @@
+first_dialysis_icd9_proc	person
+20090401	3670021456

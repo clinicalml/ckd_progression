@@ -1,0 +1,2 @@
+person	first_kidney_transplant_cpt
+3670021456	20100101

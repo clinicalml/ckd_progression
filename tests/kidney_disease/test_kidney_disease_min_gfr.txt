@@ -1,0 +1,3 @@
+person	min_gfr	age	gender
+3670021456	16.0	20	M
+1824306632	18.0	40	F

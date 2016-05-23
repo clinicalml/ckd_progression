@@ -1,0 +1,38 @@
+test_kidney_disease:
+  - name: 'first_kidney_transplant_cpt'
+    calc: 'first'
+    db_key: 'cpt'
+    code_list: 'data/kidney_transplant_cpts.txt' 
+
+  - name: 'first_dialysis_cpt'
+    calc: 'first'
+    db_key: 'cpt'
+    code_list: 'data/dialysis_cpts.txt' 
+ 
+  - name: 'first_dialysis_icd9_proc'
+    calc: 'first'
+    db_key: 'icd9_proc'
+    code_list: 'data/dialysis_icd9_procs.txt'
+
+  - name: 'first_kidney_transplant_icd9_proc'
+    calc: 'first'
+    db_key: 'icd9_proc'
+    code_list: 'data/kidney_transplant_icd9_procs.txt'
+ 
+  - name: 'min_gfr'
+    calc: 'min'
+    db_key: 'loinc_vals'
+    code_list: 'data/gfr_loincs.txt'
+    calc_gfr: True
+    value_range: [0.01, 90]
+    input: ['read_demographics', 'tests/test_demographics.txt']
+    keep_cols: True
+
+  - name: 'n_gap_stage45'
+    calc: 'count'
+    db_key: 'loinc_vals'
+    code_list: 'data/gfr_loincs.txt'
+    calc_gfr: True
+    value_range: [0.01, 30]
+    gap: 90
+    input: ['keep_threshold', 'min_gfr', 30, 'lt']
