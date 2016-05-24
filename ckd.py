@@ -99,7 +99,7 @@ def run(out_dir, data_paths_fname, stats_list_fname, check_if_file_exists=False,
 
 	data = create_outcome_data(out_dir)
 
-  # Build training dataset
+	# Build training dataset
 
 	cohort_data = btd.setup(data_paths['demographics_fname'], outcome_fname, cohort_fname)
 	training_data = btd.build_training_data(db, cohort_data, gfr_loincs, lab_lower_bound, lab_upper_bound, \
