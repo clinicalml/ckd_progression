@@ -13,11 +13,8 @@ The pipeline makes use of the following programs:
 
 - patient_stats.py: Calculate statistics on groups of patients
 - build_training_data.py: Build training examples by sliding a window over the lab data
-- features.py: Extract a set of lab, diagnosis, and prescription features for each training example and randomly divide the examples into training, validation and test sets
+- features.py: Extract a set of lab, diagnosis, and prescription features for each training example and randomly divide the examples into a training, validation and test set
 - predict.py: Train an L2-regularized logistic regression, an L1-regularized logistic regression and a random forest, use cross-validation to select the hyperparameters and calculate the AUC on the test set for the best models
-
-Tests
-=====
 
 To run tests from the command line:
 
