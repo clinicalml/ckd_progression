@@ -9,7 +9,7 @@ import pdb
 import util
 util = reload(util)
 
-import ckd
+import ckd_progression as ckd
 ckd = reload(ckd)
 
 tests_dir = 'tests/'
@@ -24,8 +24,8 @@ def add_person(db, codes, person, dates, data, code_indices, date_indices):
 
 def create_demographics(people, tests_dir):
 
-	ages = [20,40,80,65,42,25,75,70,60,55]
-	genders = ['M','F','M','M','F','M','F','F','F','M']
+	ages = [20,40,80,80,80,80,80,80,80,80]
+	genders = ['M','F','M','M','M','M','M','M','M','M']
 
 	data = {}
 	data['person'] = []
@@ -81,7 +81,11 @@ def create_db():
 
 	# 437 = 01990 (kidney transplant), 5779 = 50380 (kidney transplant), 5 = 00099 (not a kidney transplant)
 	cpt_db = add_person(cpt_db, cpts, people[0], np.array(['20110102','20100101','20121015'], dtype=object), [1,1,1], [437,5779,5], [1,0,2])
-	pd.DataFrame({'person': [people[0]], 'first_kidney_transplant_cpt': ['20100101']}).to_csv(soln_dir + 'first_kidney_transplant_cpt.txt', index=False, sep='\t')
+	cpt_db = add_person(cpt_db, cpts, people[2], np.array(['20110601'], dtype=object), [1], [437], [0])
+	cpt_db = add_person(cpt_db, cpts, people[3], np.array(['20110601'], dtype=object), [1], [437], [0])
+	cpt_db = add_person(cpt_db, cpts, people[4], np.array(['20110601'], dtype=object), [1], [437], [0])
+	cpt_db = add_person(cpt_db, cpts, people[5], np.array(['20110601'], dtype=object), [1], [437], [0])
+	pd.DataFrame({'person': [people[0], people[2], people[3], people[4], people[5]], 'first_kidney_transplant_cpt': ['20100101'] + ['20110601']*4}).to_csv(soln_dir + 'first_kidney_transplant_cpt.txt', index=False, sep='\t')
 
 	# 1182 = 3942 (dialysis)
 	icd9_proc_db = add_person(icd9_proc_db, icd9_procs, people[0], np.array(['20090504', '20090401'], dtype=object), [1,1], [1182, 1182], [0, 1]) 
@@ -89,19 +93,22 @@ def create_db():
 
 	pd.DataFrame({'person': [], 'first_dialysis_cpt': []}).to_csv(soln_dir + 'first_dialysis_cpt.txt', index=False, sep='\t')
 	pd.DataFrame({'person': [], 'first_kidney_transplant_icd9_proc': []}).to_csv(soln_dir + 'first_kidney_transplant_icd9_proc.txt', index=False, sep='\t')
-	pd.DataFrame({'person': [people[0]], 'first_kidney_failure': ['20090401']}).to_csv(soln_dir + 'first_kidney_failure.txt', index=False, sep='\t')
+	pd.DataFrame({'person': [people[0], people[2], people[3], people[4], people[5]], 'first_kidney_failure': ['20090401'] + ['20110601']*4}).to_csv(soln_dir + 'first_kidney_failure.txt', index=False, sep='\t')
 
 	# 3225 = 33914-3 (GFR), 4026 = 48642-3 (GFR), 4027 = 48643-1 (GFR), 1909 = 2160-0 (Creatinine)
 	loinc_db = add_person(loinc_db, loincs, people[0], np.array(['20100101','20110101'], dtype=object), [1, 1, 1], [3225,4026,4027], [0, 1, 1])
 	loinc_vals_db = add_person(loinc_vals_db, loincs, people[0], np.array(['20100101','20110101'], dtype=object), [30, 16, 40], [3225,4026,4027], [0, 1, 1])
 
-	loinc_db = add_person(loinc_db, loincs, people[1], np.array(['20100101','20100501', '20100901', '20101101'], dtype=object), [1, 1, 1, 1], [3225, 4026, 4026, 4026], [0, 1, 2, 3])
-	loinc_vals_db = add_person(loinc_vals_db, loincs, people[1], np.array(['20100101','20100501', '20100901', '20101101'], dtype=object), [25, 18, 20, 22], [3225, 4026, 4026, 4026], [0, 1, 2, 3])
+	for person_index in range(1, 10):
+		loinc_db = add_person(loinc_db, loincs, people[person_index], np.array(['20100101','20100501', '20100901', '20101101'], dtype=object), [1, 1, 1, 1], [3225, 4026, 4026, 4026], [0, 1, 2, 3])
+		loinc_vals_db = add_person(loinc_vals_db, loincs, people[person_index], np.array(['20100101','20100501', '20100901', '20101101'], dtype=object), [25, 18, 20, 22], [3225, 4026, 4026, 4026], [0, 1, 2, 3])
 
-	pd.DataFrame({'person': [people[0], people[1]], 'min_gfr': [16.0, 18.0], 'age': [20, 40], 'gender': ['M', 'F']}).to_csv(soln_dir + 'min_gfr.txt', index=False, sep='\t')
-	pd.DataFrame({'person': [people[1]], 'n_gap_stage45': [4]}).to_csv(soln_dir + 'n_gap_stage45.txt', index=False, sep='\t')
+	d = {'person': people, 'min_gfr': [16.0] + [18.0]*9, 'age': [20, 40] + [80]*8, 'gender': ['M', 'F'] + ['M']*8}
+	pd.DataFrame(d).to_csv(soln_dir + 'min_gfr.txt', index=False, sep='\t')
+	pd.DataFrame({'person': people[1:10], 'n_gap_stage45': [4]*9}).to_csv(soln_dir + 'n_gap_stage45.txt', index=False, sep='\t')
 
-	td = {'person': [people[1]], 'training_start_date': ['20100101'], 'training_end_date': ['20101227'], 'outcome_start_date': ['20110327'], 'outcome_end_date': ['20120321'], 'y': [0], 'age': [40], 'gender': ['F']}
+	td = {'person': people[1:10], 'training_start_date': ['20100101']*9, 'training_end_date': ['20101227']*9, \
+		'outcome_start_date': ['20110327']*9, 'outcome_end_date': ['20120321']*9, 'y': [0, 1, 1, 1, 1, 0, 0, 0, 0], 'age': [40] + [80]*8, 'gender': ['F'] + ['M']*8}
 	pd.DataFrame(td).to_csv(soln_dir + 'training_data.txt', index=False, sep='\t')
 
 	n_features = 47
@@ -116,34 +123,40 @@ def create_db():
 		Y = fout.create_earray(fout.root, 'Y', atom=tables.Atom.from_dtype(np.array([1]).dtype), shape=(0, n_outcomes, 1, 1))
 		P = fout.create_earray(fout.root, 'P', atom=tables.Atom.from_dtype(np.array(['0123456789']).dtype), shape=(0,))
  
-		X_vals = np.zeros((1, 1, n_features, n_time))
-		X_scaled_vals = np.zeros((1, 1, n_features, n_time))
-		Z_vals = np.zeros((1, 1, n_features, n_time))
-		Y_vals = np.zeros((1, 1, 1, 1))
+		X_vals = np.zeros((9, 1, n_features, n_time))
+		X_scaled_vals = np.zeros((9, 1, n_features, n_time))
+		Z_vals = np.zeros((9, 1, n_features, n_time))
+		Y_vals = np.zeros((9, 1, 1, 1))
+		Y_vals[1:5, 0, 0, 0] = 1
 
 		X_vals[0,0,age_index,:] = 40.
+		X_vals[1:,0,age_index,:] = 80.
 		X_vals[0,0,gender_index,:] = 1.
-		X_vals[0,0,0,0] = 25.
-		X_vals[0,0,1,4] = 18. 
-		X_vals[0,0,1,8] = 20.
-		X_vals[0,0,1,10] = 22.
+		X_vals[:,0,0,0] = 25.
+		X_vals[:,0,1,4] = 18. 
+		X_vals[:,0,1,8] = 20.
+		X_vals[:,0,1,10] = 22.
 
+		m = np.mean([40] + [80]*8)
+		s = float(np.std([40] + [80]*8))
+		X_scaled_vals[0,0,age_index,:] = (40. - m)/s
+		X_scaled_vals[1:,0,age_index,:] = (80. - m)/s
 		X_scaled_vals[0,0,gender_index,:] = 1.
-		X_scaled_vals[0,0,1,4] = (18. - 20.)/np.std([18,20,22])
-		X_scaled_vals[0,0,1,10] = (22. - 20.)/np.std([18,20,22])
+		X_scaled_vals[:,0,1,4] = (18. - 20.)/np.std([18,20,22])
+		X_scaled_vals[:,0,1,10] = (22. - 20.)/np.std([18,20,22])
 
-		Z_vals[0,0,age_index,:] = 1
-		Z_vals[0,0,gender_index,:] = 1
-		Z_vals[0,0,0,0] = 1
-		Z_vals[0,0,1,4] = 1
-		Z_vals[0,0,1,8] = 1
-		Z_vals[0,0,1,10] = 1
+		Z_vals[:,0,age_index,:] = 1
+		Z_vals[:,0,gender_index,:] = 1
+		Z_vals[:,0,0,0] = 1
+		Z_vals[:,0,1,4] = 1
+		Z_vals[:,0,1,8] = 1
+		Z_vals[:,0,1,10] = 1
 
 		X.append(X_vals)
 		X_scaled.append(X_scaled_vals)
 		Z.append(Z_vals)
 		Y.append(Y_vals)
-		P.append(np.array([people[1]]))
+		P.append(np.array(people[1:10]))
 	
 	loinc_db.close()
 	loinc_vals_db.close()
@@ -174,10 +187,12 @@ def features_assert_equals(a_fn, b_fn):
 	assert (a_Y == b_Y).all()
 	assert (a_P == b_P).all()
 
-def assert_equals(a, b):
+def assert_equals(a, b, sort_by_col):
 	assert len(a.columns) == len(b.columns)
 	assert (np.sort(a.columns.values) == np.sort(b.columns.values)).all()
 	assert len(a) == len(b)
+	a = a.sort(sort_by_col)
+	b = b.sort(sort_by_col)
 	for col in a.columns:
 		assert (a[col].values == b[col].values).all() 
 
@@ -203,6 +218,6 @@ def test():
 	for test_fname, soln_fname in test_soln_fnames:
 		a = pd.read_csv(out_dir + test_fname, sep='\t', dtype=str)
 		b = pd.read_csv(soln_dir + soln_fname, sep='\t', dtype=str)
-		assert_equals(a, b)
+		assert_equals(a, b, sort_by_col='person')
 
 	features_assert_equals(out_dir + 'kidney_disease_features.h5', soln_dir + 'features.h5')

@@ -1,0 +1,8 @@
+- best_auc: 0.5
+  best_param: [true, 1]
+  model: L2
+  param_names: [fit_intercept, C]
+  params:
+  - [false, true]
+  - [1, 10]
+  test_auc: 0.75

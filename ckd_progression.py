@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import datetime as dt
+from optparse import OptionParser
 
 import patient_stats as ps
 ps = reload(ps)
@@ -10,6 +11,9 @@ btd = reload(btd)
 
 import features
 features = reload(features)
+
+import predict
+predict = reload(predict)
 
 import util
 util = reload(util)
@@ -78,9 +82,13 @@ def run(out_dir, data_paths_fname, stats_list_fname, check_if_file_exists=False,
 	gap_days = 90
 	calc_gfr = True
 	feature_loincs = util.read_list_files('data/ckd_loincs.txt')
+	n_labs = len(feature_loincs)
 	feature_diseases = [[icd9] for icd9 in util.read_list_files('data/kidney_disease_mi_icd9s.txt')]
 	feature_drugs = [util.read_list_files('data/drug_class_'+dc.lower().replace('-','_').replace(',','_').replace(' ','_')+'_ndcs.txt') for dc in util.read_list_files('data/kidney_disease_drug_classes.txt')]	
 	features_fname = out_dir + stats_key + '_features.h5'
+	split_fname = out_dir + stats_key + '_split.txt'
+	features_split_fname = out_dir + stats_key + '_features_split.h5'
+	predict_fname = out_dir + stats_key + '_prediction_results.yaml'
 
 	# Load data
 
@@ -109,11 +117,24 @@ def run(out_dir, data_paths_fname, stats_list_fname, check_if_file_exists=False,
 	# Build features
 
 	features.features(db, training_data, feature_loincs, feature_diseases, feature_drugs, time_scale_days, features_fname, calc_gfr, verbose)
+	features.train_validation_test_split(len(training_data['person'].unique()), split_fname)
+	features.split(features_fname, features_split_fname, split_fname, verbose)
+	
+	# Train, test and validate models
+
+	predict.predict(features_split_fname, n_labs, predict_fname)
 
 if __name__ == '__main__':
 
-	out_dir = '/m/users/jmarcus/kidney_disease/'
-	data_path_fname = 'data_paths.yaml'
-	stats_list_fname = 'stats.yaml'
+	desc = "Run the full pipeline from cohort construction to prediction" 
+	parser = OptionParser(description=desc, usage="usage: %prog [options] data_paths_fname stats_list_fname out_dir")
+	parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False)
+	parser.add_option('-c', '--check_if_file_exists', action='store_true', dest='check_if_file_exists', default=False)
+	(options, args) = parser.parse_args()
 
-	run(out_dir, data_paths_fname, stats_list_fname, check_if_file_exists=False, verbose=True)
+	assert len(args) == 3
+	data_paths_fname = args[0] 
+	stats_list_fname = args[1]
+	out_dir = args[2]
+
+	run(out_dir, data_paths_fname, stats_list_fname, check_if_file_exists=options.check_if_file_exists, verbose=options.verbose)

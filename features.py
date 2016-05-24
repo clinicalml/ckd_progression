@@ -10,6 +10,8 @@ import time
 
 import util
 util = reload(util)
+
+np.random.seed(3)
 	
 def features(db, training_data, feature_loincs, feature_diseases, feature_drugs, time_scale_days, out_fname, calc_gfr=False, verbose=True):
 
@@ -209,3 +211,70 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 		# Clean up
 
 		fout.close()
+
+def train_validation_test_split(n_people, out_fname, p_test=1./3, p_validation=1./3):
+	n_test = int(p_test*n_people)
+	n_validation = int(p_validation*n_people)
+	n_train = n_people - n_test - n_validation
+	assignment = ['train']*n_train + ['validation']*n_validation + ['test']*n_test
+	np.random.shuffle(assignment)
+	with open(out_fname, 'w') as fout:
+		fout.write('\n'.join(assignment))
+
+def split(in_fname, out_fname, assignment_fname, verbose=True):
+
+	with tables.open_file(in_fname, mode='r') as fin:
+		X = fin.root.X
+		X_scaled = fin.root.X_scaled
+		Z = fin.root.Z
+		Y = fin.root.Y
+		P = fin.root.P
+		people = np.unique(P)
+		person_to_index = dict((person, index) for index, person in enumerate(people))
+
+		nrows = X.shape[0]
+		n_outcomes = Y.shape[1]
+		n_features = X.shape[2]
+		n_time = X.shape[3]
+		assignment = util.read_list_files(assignment_fname)
+
+		shapes = {}
+		dtypes = {}
+		for split in ['train', 'validation', 'test']:	
+			shapes['batch_input_'+split] = [1, n_features, n_time]
+			dtypes['batch_input_'+split] = np.array([0.5]).dtype
+
+			shapes['batch_input_nnx_'+split] = [1, n_features, n_time]
+			dtypes['batch_input_nnx_'+split] = np.array([1]).dtype
+
+			shapes['batch_target_'+split] = [n_outcomes, 1, 1]
+			dtypes['batch_target_'+split] = np.array([1]).dtype
+
+			shapes['p_'+split] = []
+			dtypes['p_'+split] = np.array(['0123456789']).dtype
+
+		with tables.open_file(out_fname, mode='w') as fout:
+
+			arr = {}
+			for key in shapes.keys():
+				arr[key] = fout.create_earray(fout.root, key, atom=tables.Atom.from_dtype(dtypes[key]), shape=tuple([0] + shapes[key]))
+
+			for i in range(nrows):
+				if verbose:
+					if i % 100 == 0:
+						print i
+
+				person = P[i]
+				index = person_to_index[person]
+
+				key = 'batch_input_'+assignment[index]
+				arr[key].append(np.reshape(X_scaled[i,:,:,:], tuple([1] + shapes[key])))
+
+				key = 'batch_input_nnx_'+assignment[index]
+				arr[key].append(np.reshape(Z[i], tuple([1] + shapes[key])))
+
+				key = 'batch_target_'+assignment[index]
+				arr[key].append(np.reshape(Y[i], tuple([1] + shapes[key])))
+
+				key = 'p_'+assignment[index]
+				arr[key].append(np.reshape(P[i], tuple([1] + shapes[key])))
