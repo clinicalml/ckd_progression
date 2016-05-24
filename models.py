@@ -3,13 +3,15 @@ import sklearn.linear_model
 import itertools
 import pdb
 import yaml 
+import warnings
 
 def evaluate(model, X, y):
 	proba = model.predict_proba(X)[:,1]
 	fpr, tpr, _ = sklearn.metrics.roc_curve(y, proba)
 	
 	if np.sum(np.isnan(tpr)) > 0:
-		auc = np.nan
+		auc = -1
+		warnings.warn("nans in true positive rate")
 	else:
 		auc = sklearn.metrics.auc(fpr, tpr)
 
