@@ -9,6 +9,8 @@ patient_stats.py: A utility to calculate statistics on groups of patients
 
 build_training_data.py: Build training examples from lab data patient stats
 
+features.py: Construct feature set for the training examples
+
 Tests
 =====
 

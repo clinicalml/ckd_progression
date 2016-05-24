@@ -1,0 +1,211 @@
+import numpy as np
+import pandas as pd
+import datetime as dt
+import cPickle as pickle
+import scipy.sparse
+import os
+import pdb
+import tables
+import time
+
+import util
+util = reload(util)
+	
+def features(db, training_data, feature_loincs, feature_diseases, feature_drugs, time_scale_days, out_fname, calc_gfr=False, verbose=True):
+
+	data = training_data.copy(deep=True)
+	data = data.reset_index()
+
+	data = data[['person','y','training_start_date','training_end_date','age','gender']]
+	data.columns = ['person','y','start_date','end_date','age','gender']
+	data = data[['person','y','start_date','end_date','age','gender']]
+
+	disease_loinc_indices = [db.code_to_index['loinc'][code] for code in feature_loincs]
+	disease_icd9_indices = [set([db.code_to_index['icd9'][code] for code in codes]) for codes in feature_diseases] 
+	drug_ndc_indices = [set([db.code_to_index['ndc'][code] for code in codes]) for codes in feature_drugs] 
+
+	start_date = dt.datetime.strptime(data['start_date'].iloc[0], '%Y%m%d')
+	end_date = dt.datetime.strptime(data['end_date'].iloc[0], '%Y%m%d')
+	date_range = (end_date - start_date).days
+	n_time = int(np.floor(date_range/float(time_scale_days)))
+	n_features = len(feature_loincs) + len(feature_diseases) + len(feature_drugs) + 2
+	outlier_threshold = 3
+	n_labs = len(feature_loincs)
+	n_outcomes = 1
+
+	# Open HDF5 file and initialize arrays
+
+	with tables.open_file(out_fname, mode='w') as fout:
+		X = fout.create_earray(fout.root, 'X', atom=tables.Atom.from_dtype(np.array([0.5]).dtype), shape=(0, 1, n_features, n_time))
+		X_scaled = fout.create_earray(fout.root, 'X_scaled', atom=tables.Atom.from_dtype(np.array([0.5]).dtype), shape=(0, 1, n_features, n_time))
+		Z = fout.create_earray(fout.root, 'Z', atom=tables.Atom.from_dtype(np.array([1]).dtype), shape=(0, 1, n_features, n_time))
+		Y = fout.create_earray(fout.root, 'Y', atom=tables.Atom.from_dtype(np.array([1]).dtype), shape=(0, n_outcomes, 1, 1))
+		P = fout.create_earray(fout.root, 'P', atom=tables.Atom.from_dtype(np.array([training_data['person'].iloc[0]]).dtype), shape=(0,))
+
+		# Populate the arrays
+
+		start_run_time = time.time()
+		est_run_time_at = 5
+		for i in range(len(data)):
+			if verbose == True:
+				if i % 100 == 0:
+					print str(i)
+				if i == est_run_time_at:
+					est_run_time = (time.time() - start_run_time)*(float(len(data))/est_run_time_at)*(1/(60.))
+					print 'Estimated run time (min): ' + str(round(est_run_time,2))
+
+			# Get person specific data
+
+			person = data['person'].iloc[i]
+			start_date = dt.datetime.strptime(data['start_date'].iloc[i], '%Y%m%d')
+			end_date = dt.datetime.strptime(data['end_date'].iloc[i], '%Y%m%d')
+			y_person = data['y'].iloc[i]
+
+			obs_date_strs = db.db['loinc'][person][0]
+			obs_M = db.db['loinc'][person][1]
+			val_M = db.db['loinc_vals'][person][1]
+
+			icd9_date_strs = db.db['icd9'][person][0]
+			icd9_M = db.db['icd9'][person][1]
+
+			ndc_date_strs = db.db['ndc'][person][0]
+			ndc_M = db.db['ndc'][person][1]
+
+			age = data['age'].iloc[i]
+			is_female = (data['gender'].iloc[i] == 'F')
+
+			# Get lab values
+
+			vals = {}
+			for l, loinc_index in enumerate(disease_loinc_indices):
+				for d, date_str in enumerate(obs_date_strs):
+					date = dt.datetime.strptime(date_str, '%Y%m%d')
+					if obs_M[d, loinc_index] == 1 and date >= start_date and date < end_date:
+						t = int(np.floor(((date - start_date).days)/float(time_scale_days)))
+						key = (l, t)
+						if vals.has_key(key) == False:
+							vals[key] = []	
+	
+						val = val_M[d, loinc_index]			
+						if calc_gfr == True:
+							code = db.codes['loinc'][loinc_index]
+							if code == '2160-0':
+								val = util.calc_gfr(val, age, is_female)
+
+						if val > 0:
+							vals[key].append(val)
+
+			# Aggregate lab values over time dimension
+
+			X_person = np.zeros((1, 1, n_features, n_time))
+			Z_person = np.zeros((1, 1, n_features, n_time))
+			for key in vals.keys():
+				if len(vals[key]) > 0:
+					X_person[0,0,key[0],key[1]] = np.mean(vals[key])
+					Z_person[0,0,key[0],key[1]] = 1
+
+			# Get icd9 values
+
+			icd9_nz = icd9_M.nonzero()
+			icd9_nz_date_indices = icd9_nz[0]
+			icd9_nz_icd9_indices = icd9_nz[1] 
+
+			for d, date_index in enumerate(icd9_nz_date_indices):
+				icd9_index = icd9_nz_icd9_indices[d]
+				disease_index = -1
+				for c, indices_set in enumerate(disease_icd9_indices):
+					if (icd9_index in indices_set) == True:
+						disease_index = c
+						break
+					
+				if disease_index != -1:
+					date_str = icd9_date_strs[date_index]
+					date = dt.datetime.strptime(date_str, '%Y%m%d')
+					if date >= start_date and date < end_date:
+						t = int(np.floor(((date - start_date).days)/float(time_scale_days)))
+						X_person[0,0,disease_index + len(feature_loincs),t] = 1
+						Z_person[0,0,disease_index + len(feature_loincs),t] = 1
+
+			# Get ndc values
+
+ 			ndc_nz = ndc_M.nonzero()
+			ndc_nz_date_indices = ndc_nz[0]
+			ndc_nz_ndc_indices = ndc_nz[1] 
+
+			for d, date_index in enumerate(ndc_nz_date_indices):
+				ndc_index = ndc_nz_ndc_indices[d]
+				drug_index = -1
+				for c, indices_set in enumerate(drug_ndc_indices_set):
+					if (ndc_index in indices_set) == True:
+						drug_index = c
+						break
+					
+				if drug_index != -1:
+					date_str = ndc_date_strs[date_index]
+					date = dt.datetime.strptime(date_str, '%Y%m%d')
+					if date >= start_date and date < end_date:
+						t = int(np.floor(((date - start_date).days)/float(time_scale_days)))
+						X_person[0,0,drug_index + len(feature_loincs) + len(feature_diseases),t] = 1
+						Z_person[0,0,drug_index + len(feature_loincs) + len(feature_diseases),t] = 1
+
+			# Add age and sex
+
+			age_index = len(feature_loincs) + len(feature_diseases) + len(feature_drugs)
+
+			X_person[0,0,len(feature_loincs) + len(feature_diseases) + len(feature_drugs)] = age
+			if is_female == True:
+				X_person[0,0,len(feature_loincs) + len(feature_diseases) + len(feature_drugs) + 1] = 1.0
+ 
+			Z_person[0,0,len(feature_loincs) + len(feature_diseases) + len(feature_drugs)] = 1	
+			Z_person[0,0,len(feature_loincs) + len(feature_diseases) + len(feature_drugs) + 1] = 1
+
+			# Add the person's data
+
+			X.append(X_person)	
+			Z.append(Z_person)
+
+			Y_person = np.zeros((1, n_outcomes, 1, 1))
+			Y_person[0,0,0,0] = y_person 
+			Y.append(Y_person)
+
+			P.append(np.array([person]))
+
+		# Standardize and exclude outliers
+
+		m = np.zeros(X.shape[2])
+		s = np.ones(X.shape[2])
+		for l in range(n_labs):
+			x = X[:,0,l,:]
+			x = x[x != 0]
+			if len(x) >= 1:
+				m[l] = np.mean(x)
+				s[l] = np.std(x)
+			if s[l] == 0:
+				s[l] = 1.
+				
+		x = X[:,0,age_index,:]
+		x = x[x != 0]
+		if len(x) >= 1:
+			m[age_index] = np.mean(x)
+			s[age_index] = np.std(x) 
+		if s[age_index] == 0:
+			s[age_index] = 1.
+
+		X_scaled_vals = np.zeros(X.shape)
+		for x0 in range(X.shape[0]):
+			if x0 % 1000 == 0:
+				if verbose == True:
+					print x0
+			for x1 in range(X.shape[1]):
+				for x2 in range(X.shape[2]):	
+					for x3 in range(X.shape[3]):
+						if X[x0,x1,x2,x3] != 0:
+							X_scaled_vals[x0,x1,x2,x3] = (X[x0,x1,x2,x3] - m[x2])/s[x2]
+							if (np.abs(X_scaled_vals[x0,x1,x2,x3]) >= outlier_threshold) and (x2 != age_index):
+								X_scaled_vals[x0,x1,x2,x3] = 0.
+
+		X_scaled.append(X_scaled_vals)
+
+		# Clean up
+
+		fout.close()

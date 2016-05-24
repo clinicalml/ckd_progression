@@ -77,13 +77,17 @@ def run(out_dir, data_paths_fname, stats_list_fname, check_if_file_exists=False,
 	time_scale_days = 30
 	gap_days = 90
 	calc_gfr = True
+	feature_loincs = util.read_list_files('data/ckd_loincs.txt')
+	feature_diseases = [[icd9] for icd9 in util.read_list_files('data/kidney_disease_mi_icd9s.txt')]
+	feature_drugs = [util.read_list_files('data/drug_class_'+dc.lower().replace('-','_').replace(',','_').replace(' ','_')+'_ndcs.txt') for dc in util.read_list_files('data/kidney_disease_drug_classes.txt')]	
+	features_fname = out_dir + stats_key + '_features.h5'
 
 	# Load data
 
 	data_paths = util.read_yaml(data_paths_fname)
 	db = util.Database(data_paths_fname)
 	db.load_people()
-	db.load_db(['loinc','loinc_vals','cpt','icd9_proc'])
+	db.load_db(['loinc','loinc_vals','cpt','icd9_proc','icd9','ndc'])
 
 	stats = util.read_yaml(stats_list_fname)[stats_key]
 
@@ -104,7 +108,7 @@ def run(out_dir, data_paths_fname, stats_list_fname, check_if_file_exists=False,
 
 	# Build features
 
-	features.features(db, training_data, feature_loincs, feature_diseases, feature_drugs, time_scale_days, features_fname, calc_gfr)
+	features.features(db, training_data, feature_loincs, feature_diseases, feature_drugs, time_scale_days, features_fname, calc_gfr, verbose)
 
 if __name__ == '__main__':
 

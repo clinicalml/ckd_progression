@@ -1,2 +1,2 @@
-outcome_end_date	outcome_start_date	person	training_end_date	training_start_date	y
-20120321	20110327	1824306632	20101227	20100101	0
+age	gender	outcome_end_date	outcome_start_date	person	training_end_date	training_start_date	y
+40	F	20120321	20110327	1824306632	20101227	20100101	0

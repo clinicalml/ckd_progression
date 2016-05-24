@@ -64,7 +64,9 @@ def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_up
 	training_data['training_end_date'] = []
 	training_data['outcome_start_date'] = []
 	training_data['outcome_end_date'] = []
-
+	training_data['age'] = []
+	training_data['gender'] = []
+	
 	lab_data = {}
 	lab_data['person'] = []
 	lab_data['date'] = []
@@ -79,7 +81,8 @@ def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_up
 
 		person = cohort_data['person'].iloc[i]
 		age = cohort_data['age'].iloc[i]
-		is_female = (cohort_data['gender'].iloc[i] == 'F')
+		gender = cohort_data['gender'].iloc[i]
+		is_female = (gender == 'F')
 
 		first_outcome_date_str = cohort_data[first_outcome_col].iloc[i]
 		if first_outcome_date_str == '':
@@ -207,6 +210,8 @@ def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_up
 				training_data['training_end_date'].append(dt.datetime.strftime(training_end_date, '%Y%m%d'))
 				training_data['outcome_start_date'].append(dt.datetime.strftime(outcome_start_date, '%Y%m%d'))
 				training_data['outcome_end_date'].append(dt.datetime.strftime(outcome_end_date, '%Y%m%d'))
+				training_data['age'].append(age)
+				training_data['gender'].append(gender)
 
 	training_data = pd.DataFrame(training_data)
 
