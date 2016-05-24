@@ -85,6 +85,8 @@ def run(out_dir, data_paths_fname, stats_list_fname, check_if_file_exists=False,
 	n_labs = len(feature_loincs)
 	feature_diseases = [[icd9] for icd9 in util.read_list_files('data/kidney_disease_mi_icd9s.txt')]
 	feature_drugs = [util.read_list_files('data/drug_class_'+dc.lower().replace('-','_').replace(',','_').replace(' ','_')+'_ndcs.txt') for dc in util.read_list_files('data/kidney_disease_drug_classes.txt')]	
+	age_index = 45
+	gender_index = 46
 	features_fname = out_dir + stats_key + '_features.h5'
 	split_fname = out_dir + stats_key + '_split.txt'
 	features_split_fname = out_dir + stats_key + '_features_split.h5'
@@ -122,7 +124,7 @@ def run(out_dir, data_paths_fname, stats_list_fname, check_if_file_exists=False,
 	
 	# Train, test and validate models
 
-	predict.predict(features_split_fname, n_labs, predict_fname)
+	predict.predict(features_split_fname, n_labs, age_index, gender_index, predict_fname)
 
 if __name__ == '__main__':
 

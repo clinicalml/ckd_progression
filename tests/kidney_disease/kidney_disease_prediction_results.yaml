@@ -1,8 +1,30 @@
 - best_auc: 0.5
-  best_param: [true, 1]
+  best_param: [true, 5]
   model: L2
   param_names: [fit_intercept, C]
   params:
   - [false, true]
-  - [1, 10]
+  - [0.01, 0.10000000000000001, 1, 5, 10, 20, 50, 100, 200]
   test_auc: 0.75
+- best_auc: 0.5
+  best_param: [true, 5]
+  model: L1
+  param_names: [fit_intercept, C]
+  params:
+  - [false, true]
+  - [0.01, 0.10000000000000001, 1, 5, 10, 20, 50, 100, 200]
+  test_auc: 0.5
+- best_auc: 0.5
+  best_param: [20, 3, 1, 3, 3, false, entropy]
+  model: RandomForest
+  param_names: [n_estimators, max_depth, max_features, min_samples_split, min_samples_leaf,
+    bootstrap, criterion]
+  params:
+  - [1, 10, 20]
+  - [1, 3, 10]
+  - [1, 1]
+  - [1, 3, 10]
+  - [1, 3, 10]
+  - [true, false]
+  - [gini, entropy]
+  test_auc: 0.5

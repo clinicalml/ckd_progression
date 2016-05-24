@@ -1,5 +1,6 @@
 import numpy as np
 import sklearn.linear_model
+import sklearn.ensemble
 import itertools
 import pdb
 import yaml 
@@ -19,10 +20,11 @@ def evaluate(model, X, y):
 
 class Model():
 
-	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs):
-		self.X_train, self.Y_train, self.labels = self.format_data(X_train, Y_train, n_labs)
-		self.X_validation, self.Y_validation, _ = self.format_data(X_validation, Y_validation, n_labs)
-		self.X_test, self.Y_test, _ = self.format_data(X_test, Y_test, n_labs)
+	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs=None, age_index=None, gender_index=None):
+		self.X_train, self.Y_train, self.labels = self.format_data(X_train, Y_train, n_labs, age_index, gender_index)
+		self.X_validation, self.Y_validation, _ = self.format_data(X_validation, Y_validation, n_labs, age_index, gender_index)
+		self.X_test, self.Y_test, _ = self.format_data(X_test, Y_test, n_labs, age_index, gender_index)
+		self.n_features = self.X_train.shape[1]
 
 		self.validation_auc = {}
 		self.test_auc = None
@@ -60,7 +62,7 @@ class L2(Model):
 		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs)
 		self.model = 'L2'
 
-	def format_data(self, X, Y, n_labs):
+	def format_data(self, X, Y, n_labs, age_index=None, gender_index=None):
 		
 		X_f = np.zeros((X.shape[0], X.shape[2]))
 
@@ -88,3 +90,137 @@ class L2(Model):
 
 	def get_model(self, param):
 		return sklearn.linear_model.LogisticRegression(penalty='l2', C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']])
+
+class L1(Model):
+
+	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, age_index, gender_index):
+		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, age_index, gender_index)
+		self.model = 'L1'
+		self.age_index = age_index
+		self.gender_index = gender_index
+
+	def format_data(self, X, Y, n_labs, age_index, gender_index):
+
+		n_examples = X.shape[0]
+		n_time = X.shape[3]
+		features = []
+		labels = []
+		n_features = 0
+		window_lens = [3, 6, 12]
+
+		for window_len in window_lens:
+			for l in range(n_labs):
+				v = X[:,0,l,(n_time - window_len):n_time]
+				inc = np.zeros(len(v))
+				dec = np.zeros(len(v))
+				fluc = np.zeros(len(v))
+				m = np.zeros(len(v))
+				for i in range(len(v)):
+					u = v[i,:]
+					u = u[u != 0]
+
+					if len(u) >= 1:
+						m[i] = np.mean(u)
+		
+					if len(u) >= 2:
+						diff = u[:-1] - u[1:]
+						if np.sum(diff > 0) > 0 and np.sum(diff < 0) > 0:
+							fluc[i] = 1
+	
+						if (u[-1] - u[0]) > 0:
+							inc[i] = 1
+
+						if (u[-1] - u[0]) < 0:
+							dec[i] = 1
+
+			features.append(m)
+			labels.append('mean_'+str(l)+'_over_'+str(window_len))
+			n_features += 1
+
+			features.append(inc)
+			labels.append('inc_'+str(l)+'_over_'+str(window_len))
+			n_features += 1
+
+			features.append(dec)
+			labels.append('dec_'+str(l)+'_over_'+str(window_len))
+			n_features += 1
+
+			features.append(fluc)
+			labels.append('fluc_'+str(l)+'_over_'+str(window_len))
+			n_features += 1
+	
+			for l in range(n_labs, X.shape[2]):
+				v = X[:,0,l,(n_time - window_len):n_time]
+				m = np.zeros(len(v))
+				for i in range(len(v)):
+					m[i] = np.max(v[i,:])
+
+				if ((l in set([age_index, gender_index])) == False) or (((l in set([age_index, gender_index])) == True) and window_len == 12):
+					features.append(m)
+					labels.append('max_'+str(l)+'_over_'+str(window_len))
+					n_features += 1
+
+		X_f = np.zeros((n_examples, n_features))
+		for i in range(n_features):
+			X_f[:,i] = features[i]
+
+		y_f = Y[:,0,0,0]
+
+		return X_f, y_f, labels
+
+	def get_model(self, param):
+		return sklearn.linear_model.LogisticRegression(penalty='l1', C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']])
+
+class RandomForest(Model):
+
+	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test):
+		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test)
+		self.model = 'RandomForest'
+
+	def format_data(self, X, Y, n_labs=None, age_index=None, gender_index=None):
+		n_features = np.prod(X.shape[1:])
+		X_f = np.reshape(X, (X.shape[0], n_features))
+		y_f = Y[:,0,0,0]
+		labels = map(str, range(n_features))
+		return X_f, y_f, labels
+
+	def get_model(self, param):
+
+		if self.param_name_to_index.has_key('n_estimators') == True:
+			n_estimators = param[self.param_name_to_index['n_estimators']]
+		else:
+			n_estimators = 10
+
+		if self.param_name_to_index.has_key('criterion') == True:
+			criterion = param[self.param_name_to_index['criterion']]
+		else:
+			criterion = 'entropy'
+
+		if self.param_name_to_index.has_key('max_depth') == True:
+			max_depth = param[self.param_name_to_index['max_depth']]
+		else:
+			max_depth = 3
+
+		if self.param_name_to_index.has_key('min_samples_split') == True:
+			min_samples_split = param[self.param_name_to_index['min_samples_split']]
+		else:
+			min_samples_split = 3
+
+		if self.param_name_to_index.has_key('min_samples_leaf') == True:
+			min_samples_leaf = param[self.param_name_to_index['min_samples_leaf']]
+		else:
+			min_samples_leaf = 10
+
+		if self.param_name_to_index.has_key('max_features') == True:
+			max_features = param[self.param_name_to_index['max_features']]
+		else:
+			max_features = self.n_features
+
+		if self.param_name_to_index.has_key('bootstrap') == True:
+			bootstrap = param[self.param_name_to_index['bootstrap']]
+		else:
+			bootstrap = True
+
+		model = sklearn.ensemble.RandomForestClassifier(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, \
+			min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf, max_features=max_features, bootstrap=bootstrap)
+		return model
