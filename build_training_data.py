@@ -6,6 +6,51 @@ import pdb
 import util 
 util = reload(util)
 
+def build_outcome_data(in_dir, out_fname):
+
+	first_dialysis_cpt = pd.read_csv(in_dir + 'kidney_disease_first_dialysis_cpt.txt', sep='\t', dtype=str)
+	first_kidney_transplant_cpt = pd.read_csv(in_dir + 'kidney_disease_first_kidney_transplant_cpt.txt', sep='\t', dtype=str)
+	first_dialysis_icd9_proc = pd.read_csv(in_dir + 'kidney_disease_first_dialysis_icd9_proc.txt', sep='\t', dtype=str)
+	first_kidney_transplant_icd9_proc = pd.read_csv(in_dir + 'kidney_disease_first_kidney_transplant_icd9_proc.txt', sep='\t', dtype=str)
+
+	people = list(first_dialysis_cpt['person'].values)
+	people += list(first_dialysis_icd9_proc['person'].values)
+	people += list(first_kidney_transplant_cpt['person'].values)
+	people += list(first_kidney_transplant_icd9_proc['person'].values)
+	people = np.unique(people)
+
+	data = pd.DataFrame({'person': people})
+	data = pd.merge(data, first_dialysis_cpt, how='left', on='person')
+	data = pd.merge(data, first_dialysis_icd9_proc, how='left', on='person')
+	data = pd.merge(data, first_kidney_transplant_cpt, how='left', on='person')
+	data = pd.merge(data, first_kidney_transplant_icd9_proc, how='left', on='person')
+
+	data['first_kidney_failure'] = np.nan
+	data = data.reset_index()
+	for i in range(len(data)):
+		ds = []
+		if pd.isnull(data['first_kidney_transplant_cpt'].iloc[i]) == False:
+			d = dt.datetime.strptime(data['first_kidney_transplant_cpt'].iloc[i], '%Y%m%d')
+			ds.append(d)
+		if pd.isnull(data['first_kidney_transplant_icd9_proc'].iloc[i]) == False:
+			d = dt.datetime.strptime(data['first_kidney_transplant_icd9_proc'].iloc[i], '%Y%m%d')
+			ds.append(d)
+		if pd.isnull(data['first_dialysis_cpt'].iloc[i]) == False:
+			d = dt.datetime.strptime(data['first_dialysis_cpt'].iloc[i], '%Y%m%d')
+			ds.append(d)
+		if pd.isnull(data['first_dialysis_icd9_proc'].iloc[i]) == False:
+			d = dt.datetime.strptime(data['first_dialysis_icd9_proc'].iloc[i], '%Y%m%d')
+			ds.append(d)
+
+		data.loc[i, 'first_kidney_failure'] = dt.datetime.strftime(np.min(ds), '%Y%m%d')
+
+	data = data[['person','first_kidney_failure']]
+	data = data[data['first_kidney_failure'].isnull() == False]
+
+	data.to_csv(out_fname, index=False, sep='\t')
+
+	return data
+
 def setup(demo_fname, outcome_fname, cohort_fname):
 
 	demo = pd.read_csv(demo_fname, sep='\t', dtype={'person': str, 'gender': str, 'age': int})
