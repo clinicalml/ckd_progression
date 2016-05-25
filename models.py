@@ -6,6 +6,8 @@ import pdb
 import yaml 
 import warnings
 
+random_state = 3
+
 def evaluate(model, X, y):
 	proba = model.predict_proba(X)[:,1]
 	fpr, tpr, _ = sklearn.metrics.roc_curve(y, proba)
@@ -89,7 +91,7 @@ class L2(Model):
 		return X_f, y_f, labels
 
 	def get_model(self, param):
-		return sklearn.linear_model.LogisticRegression(penalty='l2', C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']])
+		return sklearn.linear_model.LogisticRegression(penalty='l2', C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']], random_state=random_state)
 
 class L1(Model):
 
@@ -133,21 +135,21 @@ class L1(Model):
 						if (u[-1] - u[0]) < 0:
 							dec[i] = 1
 
-			features.append(m)
-			labels.append('mean_'+str(l)+'_over_'+str(window_len))
-			n_features += 1
+				features.append(m)
+				labels.append('mean_'+str(l)+'_over_'+str(window_len))
+				n_features += 1
 
-			features.append(inc)
-			labels.append('inc_'+str(l)+'_over_'+str(window_len))
-			n_features += 1
+				features.append(inc)
+				labels.append('inc_'+str(l)+'_over_'+str(window_len))
+				n_features += 1
 
-			features.append(dec)
-			labels.append('dec_'+str(l)+'_over_'+str(window_len))
-			n_features += 1
+				features.append(dec)
+				labels.append('dec_'+str(l)+'_over_'+str(window_len))
+				n_features += 1
 
-			features.append(fluc)
-			labels.append('fluc_'+str(l)+'_over_'+str(window_len))
-			n_features += 1
+				features.append(fluc)
+				labels.append('fluc_'+str(l)+'_over_'+str(window_len))
+				n_features += 1
 	
 			for l in range(n_labs, X.shape[2]):
 				v = X[:,0,l,(n_time - window_len):n_time]
@@ -169,7 +171,7 @@ class L1(Model):
 		return X_f, y_f, labels
 
 	def get_model(self, param):
-		return sklearn.linear_model.LogisticRegression(penalty='l1', C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']])
+		return sklearn.linear_model.LogisticRegression(penalty='l1', C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']], random_state=random_state)
 
 class RandomForest(Model):
 
@@ -189,7 +191,7 @@ class RandomForest(Model):
 		if self.param_name_to_index.has_key('n_estimators') == True:
 			n_estimators = param[self.param_name_to_index['n_estimators']]
 		else:
-			n_estimators = 10
+			n_estimators = 20
 
 		if self.param_name_to_index.has_key('criterion') == True:
 			criterion = param[self.param_name_to_index['criterion']]
@@ -204,7 +206,7 @@ class RandomForest(Model):
 		if self.param_name_to_index.has_key('min_samples_split') == True:
 			min_samples_split = param[self.param_name_to_index['min_samples_split']]
 		else:
-			min_samples_split = 3
+			min_samples_split = 1
 
 		if self.param_name_to_index.has_key('min_samples_leaf') == True:
 			min_samples_leaf = param[self.param_name_to_index['min_samples_leaf']]
@@ -222,5 +224,5 @@ class RandomForest(Model):
 			bootstrap = True
 
 		model = sklearn.ensemble.RandomForestClassifier(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, \
-			min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf, max_features=max_features, bootstrap=bootstrap)
+			min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf, max_features=max_features, bootstrap=bootstrap, random_state=random_state)
 		return model

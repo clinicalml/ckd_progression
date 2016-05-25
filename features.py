@@ -137,7 +137,7 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 			for d, date_index in enumerate(ndc_nz_date_indices):
 				ndc_index = ndc_nz_ndc_indices[d]
 				drug_index = -1
-				for c, indices_set in enumerate(drug_ndc_indices_set):
+				for c, indices_set in enumerate(drug_ndc_indices):
 					if (ndc_index in indices_set) == True:
 						drug_index = c
 						break

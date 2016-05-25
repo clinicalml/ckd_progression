@@ -437,7 +437,7 @@ def patient_stats(db, stats, stats_key, out_dir='', stat_indices=None, verbose=T
 		out_fname = out_dir + stats_key + '_' + stat['name'] + '.txt' 
 
 		if check_if_file_exists == True and os.path.isfile(out_fname) == True:
-				data[stat['name']] = pd.read_csv(out_fname, sep='\t', dtype=get_dtype(stat))
+				data[stat['name']] = pd.read_csv(out_fname, sep='\t')
 		else:
 			data[stat['name']] = calc_stat(db, stat, people, verbose)
 
