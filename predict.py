@@ -46,7 +46,7 @@ def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False)
 		print "-->RandomForest"
 
 	model = models.RandomForest(X_train, Y_train, X_validation, Y_validation, X_test, Y_test)
-	params = [[1, 10, 20], [1, 3, 10], [int(np.sqrt(X_train.shape[1])), X_train.shape[1]], [1, 3, 10], [1, 3, 10], [True, False], ['gini', 'entropy']]
+	params = [[1, 10, 20], [1, 3, 10], ['sqrt_n_features', 'n_features'], [1, 3, 10], [1, 3, 10], [True, False], ['gini', 'entropy']]
 	param_names = ['n_estimators','max_depth','max_features','min_samples_split','min_samples_leaf','bootstrap','criterion']
 	model.crossvalidate(params=params, param_names=param_names)
 	model.test()

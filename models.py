@@ -26,7 +26,6 @@ class Model():
 		self.X_train, self.Y_train, self.labels = self.format_data(X_train, Y_train, n_labs, age_index, gender_index)
 		self.X_validation, self.Y_validation, _ = self.format_data(X_validation, Y_validation, n_labs, age_index, gender_index)
 		self.X_test, self.Y_test, _ = self.format_data(X_test, Y_test, n_labs, age_index, gender_index)
-		self.n_features = self.X_train.shape[1]
 
 		self.validation_auc = {}
 		self.test_auc = None
@@ -65,8 +64,9 @@ class L2(Model):
 		self.model = 'L2'
 
 	def format_data(self, X, Y, n_labs, age_index=None, gender_index=None):
-		
-		X_f = np.zeros((X.shape[0], X.shape[2]))
+	
+		self.n_features = X.shape[2]	
+		X_f = np.zeros((X.shape[0], self.n_features))
 
 		for i in range(X.shape[0]):
 			for l in range(n_labs):
@@ -107,7 +107,7 @@ class L1(Model):
 		n_time = X.shape[3]
 		features = []
 		labels = []
-		n_features = 0
+		self.n_features = 0
 		window_lens = [3, 6, 12]
 
 		for window_len in window_lens:
@@ -137,19 +137,19 @@ class L1(Model):
 
 				features.append(m)
 				labels.append('mean_'+str(l)+'_over_'+str(window_len))
-				n_features += 1
+				self.n_features += 1
 
 				features.append(inc)
 				labels.append('inc_'+str(l)+'_over_'+str(window_len))
-				n_features += 1
+				self.n_features += 1
 
 				features.append(dec)
 				labels.append('dec_'+str(l)+'_over_'+str(window_len))
-				n_features += 1
+				self.n_features += 1
 
 				features.append(fluc)
 				labels.append('fluc_'+str(l)+'_over_'+str(window_len))
-				n_features += 1
+				self.n_features += 1
 	
 			for l in range(n_labs, X.shape[2]):
 				v = X[:,0,l,(n_time - window_len):n_time]
@@ -160,10 +160,10 @@ class L1(Model):
 				if ((l in set([age_index, gender_index])) == False) or (((l in set([age_index, gender_index])) == True) and window_len == 12):
 					features.append(m)
 					labels.append('max_'+str(l)+'_over_'+str(window_len))
-					n_features += 1
+					self.n_features += 1
 
-		X_f = np.zeros((n_examples, n_features))
-		for i in range(n_features):
+		X_f = np.zeros((n_examples, self.n_features))
+		for i in range(self.n_features):
 			X_f[:,i] = features[i]
 
 		y_f = Y[:,0,0,0]
@@ -180,10 +180,10 @@ class RandomForest(Model):
 		self.model = 'RandomForest'
 
 	def format_data(self, X, Y, n_labs=None, age_index=None, gender_index=None):
-		n_features = np.prod(X.shape[1:])
-		X_f = np.reshape(X, (X.shape[0], n_features))
+		self.n_features = np.prod(X.shape[1:])
+		X_f = np.reshape(X, (X.shape[0], self.n_features))
 		y_f = Y[:,0,0,0]
-		labels = map(str, range(n_features))
+		labels = map(str, range(self.n_features))
 		return X_f, y_f, labels
 
 	def get_model(self, param):
@@ -214,7 +214,12 @@ class RandomForest(Model):
 			min_samples_leaf = 10
 
 		if self.param_name_to_index.has_key('max_features') == True:
-			max_features = param[self.param_name_to_index['max_features']]
+			if param[self.param_name_to_index['max_features']] == 'sqrt_n_features':
+				max_features = int(np.sqrt(self.n_features))
+			elif param[self.param_name_to_index['max_features']] == 'n_features':
+				max_features = self.n_features
+			else:
+				raise ValueError("param value not recognized")
 		else:
 			max_features = self.n_features
 

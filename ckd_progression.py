@@ -18,7 +18,7 @@ predict = reload(predict)
 import util
 util = reload(util)
 
-def run(out_dir, data_paths_fname, stats_list_fname, check_if_file_exists=False, verbose=True): 
+def run(out_dir, data_paths_fname, stats_list_fname, split_fname=None, check_if_file_exists=False, verbose=True): 
 
 	stats_key = 'kidney_disease'
 	outcome_stat_name = 'first_kidney_failure'
@@ -43,9 +43,9 @@ def run(out_dir, data_paths_fname, stats_list_fname, check_if_file_exists=False,
 	age_index = 45
 	gender_index = 46
 	features_fname = out_dir + stats_key + '_features.h5'
-	split_fname = out_dir + stats_key + '_split.txt'
 	features_split_fname = out_dir + stats_key + '_features_split.h5'
 	predict_fname = out_dir + stats_key + '_prediction_results.yaml'
+
 
 	if verbose:
 		print "Loading data"
@@ -75,7 +75,11 @@ def run(out_dir, data_paths_fname, stats_list_fname, check_if_file_exists=False,
 		print "Building features"
 
 	features.features(db, training_data, feature_loincs, feature_diseases, feature_drugs, time_scale_days, features_fname, calc_gfr, verbose)
-	features.train_validation_test_split(len(training_data['person'].unique()), split_fname)
+
+	if split_fname is None:
+		split_fname = out_dir + stats_key + '_split.txt'
+		features.train_validation_test_split(len(training_data['person'].unique()), split_fname)
+
 	features.split(features_fname, features_split_fname, split_fname, verbose)
 	
 	if verbose:
@@ -89,6 +93,7 @@ if __name__ == '__main__':
 	parser = OptionParser(description=desc, usage="usage: %prog [options] data_paths_fname stats_list_fname out_dir")
 	parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False)
 	parser.add_option('-c', '--check_if_file_exists', action='store_true', dest='check_if_file_exists', default=False)
+	parser.add_option('-s', '--split_fname', action='store', dest='split_fname', default=None)
 	(options, args) = parser.parse_args()
 
 	assert len(args) == 3
@@ -96,4 +101,4 @@ if __name__ == '__main__':
 	stats_list_fname = args[1]
 	out_dir = args[2]
 
-	run(out_dir, data_paths_fname, stats_list_fname, check_if_file_exists=options.check_if_file_exists, verbose=options.verbose)
+	run(out_dir, data_paths_fname, stats_list_fname, split_fname=options.split_fname, check_if_file_exists=options.check_if_file_exists, verbose=options.verbose)
