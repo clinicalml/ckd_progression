@@ -38,14 +38,20 @@ def run(out_dir, data_paths_fname, stats_list_fname, split_fname=None, check_if_
 	calc_gfr = True
 	feature_loincs = util.read_list_files('data/ckd_loincs.txt')
 	n_labs = len(feature_loincs)
-	feature_diseases = [[icd9] for icd9 in util.read_list_files('data/kidney_disease_mi_icd9s.txt')]
-	feature_drugs = [util.read_list_files('data/drug_class_'+dc.lower().replace('-','_').replace(',','_').replace(' ','_')+'_ndcs.txt') for dc in util.read_list_files('data/kidney_disease_drug_classes.txt')]	
-	age_index = 45
-	gender_index = 46
+	feature_diseases = [] #[[icd9] for icd9 in util.read_list_files('data/kidney_disease_mi_icd9s.txt')]
+	feature_drugs = [] #[util.read_list_files('data/drug_class_'+dc.lower().replace('-','_').replace(',','_').replace(' ','_')+'_ndcs.txt') for dc in util.read_list_files('data/kidney_disease_drug_classes.txt')]	
+
+	add_age_sex = False
+	if add_age_sex:
+		age_index = len(feature_loincs) + len(feature_diseases) + len(feature_drugs)
+		gender_index = len(feature_loincs) + len(feature_diseases) + len(feature_drugs) + 1
+	else:
+		age_index = None
+		gender_index = None
+
 	features_fname = out_dir + stats_key + '_features.h5'
 	features_split_fname = out_dir + stats_key + '_features_split.h5'
 	predict_fname = out_dir + stats_key + '_prediction_results.yaml'
-
 
 	if verbose:
 		print "Loading data"
@@ -74,7 +80,7 @@ def run(out_dir, data_paths_fname, stats_list_fname, split_fname=None, check_if_
 	if verbose:
 		print "Building features"
 
-	features.features(db, training_data, feature_loincs, feature_diseases, feature_drugs, time_scale_days, features_fname, calc_gfr, verbose)
+	features.features(db, training_data, feature_loincs, feature_diseases, feature_drugs, time_scale_days, features_fname, calc_gfr, verbose, add_age_sex)
 
 	if split_fname is None:
 		split_fname = out_dir + stats_key + '_split.txt'

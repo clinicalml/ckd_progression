@@ -13,7 +13,7 @@ util = reload(util)
 
 np.random.seed(3)
 	
-def features(db, training_data, feature_loincs, feature_diseases, feature_drugs, time_scale_days, out_fname, calc_gfr=False, verbose=True):
+def features(db, training_data, feature_loincs, feature_diseases, feature_drugs, time_scale_days, out_fname, calc_gfr=False, verbose=True, add_age_sex=False):
 
 	data = training_data.copy(deep=True)
 	data = data.reset_index()
@@ -30,7 +30,10 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 	end_date = dt.datetime.strptime(data['end_date'].iloc[0], '%Y%m%d')
 	date_range = (end_date - start_date).days
 	n_time = int(np.floor(date_range/float(time_scale_days)))
-	n_features = len(feature_loincs) + len(feature_diseases) + len(feature_drugs) + 2
+	n_features = len(feature_loincs) + len(feature_diseases) + len(feature_drugs)
+	if add_age_sex:
+		n_features += 2
+
 	outlier_threshold = 3
 	n_labs = len(feature_loincs)
 	n_outcomes = 1
@@ -152,14 +155,15 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 
 			# Add age and sex
 
-			age_index = len(feature_loincs) + len(feature_diseases) + len(feature_drugs)
+			if add_age_sex:
+				age_index = len(feature_loincs) + len(feature_diseases) + len(feature_drugs)
 
-			X_person[0,0,len(feature_loincs) + len(feature_diseases) + len(feature_drugs)] = age
-			if is_female == True:
-				X_person[0,0,len(feature_loincs) + len(feature_diseases) + len(feature_drugs) + 1] = 1.0
+				X_person[0,0,len(feature_loincs) + len(feature_diseases) + len(feature_drugs)] = age
+				if is_female == True:
+					X_person[0,0,len(feature_loincs) + len(feature_diseases) + len(feature_drugs) + 1] = 1.0
  
-			Z_person[0,0,len(feature_loincs) + len(feature_diseases) + len(feature_drugs)] = 1	
-			Z_person[0,0,len(feature_loincs) + len(feature_diseases) + len(feature_drugs) + 1] = 1
+				Z_person[0,0,len(feature_loincs) + len(feature_diseases) + len(feature_drugs)] = 1	
+				Z_person[0,0,len(feature_loincs) + len(feature_diseases) + len(feature_drugs) + 1] = 1
 
 			# Add the person's data
 
@@ -184,14 +188,15 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 				s[l] = np.std(x)
 			if s[l] == 0:
 				s[l] = 1.
-				
-		x = X[:,0,age_index,:]
-		x = x[x != 0]
-		if len(x) >= 1:
-			m[age_index] = np.mean(x)
-			s[age_index] = np.std(x) 
-		if s[age_index] == 0:
-			s[age_index] = 1.
+	
+		if add_age_sex:			
+			x = X[:,0,age_index,:]
+			x = x[x != 0]
+			if len(x) >= 1:
+				m[age_index] = np.mean(x)
+				s[age_index] = np.std(x) 
+			if s[age_index] == 0:
+				s[age_index] = 1.
 
 		X_scaled_vals = np.zeros(X.shape)
 		for x0 in range(X.shape[0]):
@@ -203,8 +208,12 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 					for x3 in range(X.shape[3]):
 						if X[x0,x1,x2,x3] != 0:
 							X_scaled_vals[x0,x1,x2,x3] = (X[x0,x1,x2,x3] - m[x2])/s[x2]
-							if (np.abs(X_scaled_vals[x0,x1,x2,x3]) >= outlier_threshold) and (x2 != age_index):
-								X_scaled_vals[x0,x1,x2,x3] = 0.
+							if add_age_sex:
+								if (np.abs(X_scaled_vals[x0,x1,x2,x3]) >= outlier_threshold) and (x2 != age_index):
+									X_scaled_vals[x0,x1,x2,x3] = 0.
+							else:
+								if (np.abs(X_scaled_vals[x0,x1,x2,x3]) >= outlier_threshold):
+									X_scaled_vals[x0,x1,x2,x3] = 0.
 
 		X_scaled.append(X_scaled_vals)
 

@@ -101,7 +101,7 @@ class L1(Model):
 		self.age_index = age_index
 		self.gender_index = gender_index
 
-	def format_data(self, X, Y, n_labs, age_index, gender_index):
+	def format_data(self, X, Y, n_labs, age_index=None, gender_index=None):
 
 		n_examples = X.shape[0]
 		n_time = X.shape[3]
@@ -157,7 +157,12 @@ class L1(Model):
 				for i in range(len(v)):
 					m[i] = np.max(v[i,:])
 
-				if ((l in set([age_index, gender_index])) == False) or (((l in set([age_index, gender_index])) == True) and window_len == 12):
+				if (age_index is not None) and (gender_index is not None):
+					if ((l in set([age_index, gender_index])) == False) or (((l in set([age_index, gender_index])) == True) and window_len == 12):
+						features.append(m)
+						labels.append('max_'+str(l)+'_over_'+str(window_len))
+						self.n_features += 1
+				else:
 					features.append(m)
 					labels.append('max_'+str(l)+'_over_'+str(window_len))
 					self.n_features += 1
