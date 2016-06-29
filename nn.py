@@ -158,7 +158,6 @@ class NeuralNet():
 			self.rng.shuffle(indices)
 			X = X_train[indices]
 			Y = Y_train[indices]
-			print indices[0:10]
 
 			for start, stop in zip(range(0, n_examples, mini_batch_size), range(mini_batch_size, n_examples, mini_batch_size)):
 				train_loss = self.train_fn(X[start:stop], Y[start:stop])
