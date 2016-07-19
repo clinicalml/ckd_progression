@@ -204,7 +204,7 @@ def test():
 	test_data_paths_fname = tests_dir + 'test_data_paths.yaml'
 	test_stats_list_fname = tests_dir + 'test_stats.yaml'
 
-	ckd.run(out_dir, test_data_paths_fname, test_stats_list_fname, check_if_file_exists=False, verbose=False)
+	ckd.run(out_dir, test_data_paths_fname, test_stats_list_fname, use_non_lab_features=True, check_if_file_exists=False, verbose=False)
 
 	test_soln_fnames = []
 	test_soln_fnames.append(('kidney_disease_first_dialysis_cpt.txt', 'first_dialysis_cpt.txt'))
