@@ -1,2 +1,3 @@
 *.pyc
 tests/kidney_disease/*
+tests/soln/*
