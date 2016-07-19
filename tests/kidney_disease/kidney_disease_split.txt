@@ -1,9 +1,0 @@
-test
-train
-test
-validation
-validation
-train
-validation
-train
-test

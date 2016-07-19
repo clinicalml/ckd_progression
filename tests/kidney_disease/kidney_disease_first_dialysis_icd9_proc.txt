@@ -1,2 +1,0 @@
-person	first_dialysis_icd9_proc
-3670021456	20090401
