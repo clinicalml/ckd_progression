@@ -13,13 +13,12 @@ def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False)
 		print "loading data"
 
 	with tables.open_file(in_fname, mode='r') as fin:
-		n_examples = fin.root.batch_input_train.nrows
-		X_train = fin.root.batch_input_train[0:n_examples]
-		Y_train = fin.root.batch_target_train[0:n_examples]
-		X_validation = fin.root.batch_input_validation[0:n_examples]
-		Y_validation = fin.root.batch_target_validation[0:n_examples]
-		X_test = fin.root.batch_input_test[0:n_examples]
-		Y_test = fin.root.batch_target_test[0:n_examples]
+		X_train = fin.root.batch_input_train[:]
+		Y_train = fin.root.batch_target_train[:]
+		X_validation = fin.root.batch_input_validation[:]
+		Y_validation = fin.root.batch_target_validation[:]
+		X_test = fin.root.batch_input_test[:]
+		Y_test = fin.root.batch_target_test[:]
 
 	if verbose:
 		print "training, validating and testing models"

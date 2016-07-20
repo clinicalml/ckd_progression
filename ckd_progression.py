@@ -18,7 +18,7 @@ predict = reload(predict)
 import util
 util = reload(util)
 
-def run(out_dir, data_paths_fname, stats_list_fname, use_non_lab_features=False, split_fname=None, check_if_file_exists=False, verbose=True): 
+def run(out_dir, data_paths_fname, stats_list_fname, use_just_common_labs=True, split_fname=None, check_if_file_exists=False, verbose=True): 
 
 	stats_key = 'kidney_disease'
 	outcome_stat_name = 'first_kidney_failure'
@@ -36,17 +36,19 @@ def run(out_dir, data_paths_fname, stats_list_fname, use_non_lab_features=False,
 	time_scale_days = 30
 	gap_days = 90
 	calc_gfr = True
-	feature_loincs = util.read_list_files('data/ckd_loincs.txt')
-	n_labs = len(feature_loincs)
 
-	if use_non_lab_features:
+	if use_just_common_labs == False:
+		feature_loincs = util.read_list_files('data/ckd_loincs.txt')
 		feature_diseases = [[icd9] for icd9 in util.read_list_files('data/kidney_disease_mi_icd9s.txt')]
 		feature_drugs = [util.read_list_files('data/drug_class_'+dc.lower().replace('-','_').replace(',','_').replace(' ','_')+'_ndcs.txt') for dc in util.read_list_files('data/kidney_disease_drug_classes.txt')]
 		add_age_sex = True
 	else: 
+		feature_loincs = util.read_list_files('data/common_loincs.txt')
 		feature_diseases = []	
 		feature_drugs = []
 		add_age_sex = False
+
+	n_labs = len(feature_loincs)
 
 	if add_age_sex:
 		age_index = len(feature_loincs) + len(feature_diseases) + len(feature_drugs)
@@ -106,7 +108,7 @@ if __name__ == '__main__':
 	parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False)
 	parser.add_option('-c', '--check_if_file_exists', action='store_true', dest='check_if_file_exists', default=False)
 	parser.add_option('-s', '--split_fname', action='store', dest='split_fname', default=None)
-	parser.add_option('-n', '--use_non_lab_features', action='store', dest='use_non_lab_features', default=False)
+	parser.add_option('-f', '--use_ckd_labs_and_non_lab_features', action='store_true', dest='use_ckd_labs_and_non_lab_features', default=False)
 	(options, args) = parser.parse_args()
 
 	assert len(args) == 3
@@ -114,4 +116,9 @@ if __name__ == '__main__':
 	stats_list_fname = args[1]
 	out_dir = args[2]
 
-	run(out_dir, data_paths_fname, stats_list_fname, use_non_lab_features=options.use_non_lab_features, split_fname=options.split_fname, check_if_file_exists=options.check_if_file_exists, verbose=options.verbose)
+	if options.use_ckd_labs_and_non_lab_features == True:
+		use_just_common_labs = False
+	else:
+		use_just_common_labs = True
+
+	run(out_dir, data_paths_fname, stats_list_fname, use_just_common_labs=use_just_common_labs, split_fname=options.split_fname, check_if_file_exists=options.check_if_file_exists, verbose=options.verbose)
