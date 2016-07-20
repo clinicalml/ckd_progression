@@ -12,6 +12,26 @@ import util
 util = reload(util)
 
 np.random.seed(3)
+
+def get_data(in_fname, get_person_ids=False):
+
+	with tables.open_file(in_fname, mode='r') as fin:	
+		X_train = fin.root.batch_input_train[:]
+		Y_train = fin.root.batch_target_train[:]
+		X_validation = fin.root.batch_input_validation[:]
+		Y_validation = fin.root.batch_target_validation[:]
+		X_test = fin.root.batch_input_test[:]
+		Y_test = fin.root.batch_target_test[:]
+
+		if get_person_ids:
+			p_train = fin.root.p_train[:]
+			p_validation = fin.root.p_validation[:]
+			p_test = fin.root.p_test[:]
+
+	if get_person_ids:
+		return X_train, Y_train, X_validation, Y_validation, X_test, Y_test, p_train, p_validation, p_test
+	else:
+		return X_train, Y_train, X_validation, Y_validation, X_test, Y_test
 	
 def features(db, training_data, feature_loincs, feature_diseases, feature_drugs, time_scale_days, out_fname, calc_gfr=False, verbose=True, add_age_sex=False):
 
@@ -64,7 +84,7 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 			person = data['person'].iloc[i]
 			start_date = dt.datetime.strptime(data['start_date'].iloc[i], '%Y%m%d')
 			end_date = dt.datetime.strptime(data['end_date'].iloc[i], '%Y%m%d')
-			y_person = data['y'].iloc[i]
+			y_person = int(data['y'].iloc[i])
 
 			obs_date_strs = db.db['loinc'][person][0]
 			obs_M = db.db['loinc'][person][1]
@@ -76,7 +96,7 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 			ndc_date_strs = db.db['ndc'][person][0]
 			ndc_M = db.db['ndc'][person][1]
 
-			age = data['age'].iloc[i]
+			age = int(data['age'].iloc[i])
 			is_female = (data['gender'].iloc[i] == 'F')
 
 			# Get lab values

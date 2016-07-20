@@ -4,6 +4,9 @@ import pdb
 import pandas as pd
 import yaml
 
+import features
+features = reload(features)
+
 import models
 models = reload(models)
 
@@ -12,13 +15,7 @@ def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False)
 	if verbose:
 		print "loading data"
 
-	with tables.open_file(in_fname, mode='r') as fin:
-		X_train = fin.root.batch_input_train[:]
-		Y_train = fin.root.batch_target_train[:]
-		X_validation = fin.root.batch_input_validation[:]
-		Y_validation = fin.root.batch_target_validation[:]
-		X_test = fin.root.batch_input_test[:]
-		Y_test = fin.root.batch_target_test[:]
+	X_train, Y_train, X_validation, Y_validation, X_test, Y_test = features.get_data(in_fname)
 
 	if verbose:
 		print "training, validating and testing models"

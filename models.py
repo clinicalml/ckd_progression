@@ -56,6 +56,28 @@ class Model():
 	def summarize(self):
 		s = {'model': self.model, 'test_auc': float(self.test_auc), 'best_param': list(self.best_param), 'best_auc': float(self.best_auc), 'params': list(self.params), 'param_names': list(self.param_names)} 
 		return s
+
+class LMax(Model):
+
+	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test):
+		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test)
+		self.model = 'LMax'
+
+	def format_data(self, X, Y, n_labs=None, age_index=None, gender_index=None):
+	
+		X_f = np.max(X[:, 0, :, :], axis=2)
+		self.n_features = X_f.shape[1]
+	
+		y_f = Y[:,0,0,0]
+
+		labels = []
+		for i in range(self.n_features):
+			labels.append('max_'+str(i))
+
+		return X_f, y_f, labels
+
+	def get_model(self, param):
+		return sklearn.linear_model.LogisticRegression(penalty='l1', C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']], random_state=random_state)
 	
 class L2(Model):
 
