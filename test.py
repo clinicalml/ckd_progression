@@ -15,6 +15,12 @@ ckd = reload(ckd)
 tests_dir = 'tests/'
 soln_dir = tests_dir + 'soln/'
 
+if os.path.exists(tests_dir) == False:
+	os.mkdir(tests_dir)
+
+if os.path.exists(soln_dir) == False:
+	os.mkdir(soln_dir)
+
 def add_person(db, codes, person, dates, data, code_indices, date_indices):
 
 	X = scipy.sparse.csr_matrix((data, (date_indices, code_indices)), shape=(len(dates), len(codes)), dtype=np.float64)
@@ -201,6 +207,10 @@ def test():
 	create_db()
 
 	out_dir = tests_dir + 'kidney_disease/'
+
+	if os.path.exists(tests_dir) == False:
+		os.mkdir(out_dir)
+
 	test_data_paths_fname = tests_dir + 'test_data_paths.yaml'
 	test_stats_list_fname = tests_dir + 'test_stats.yaml'
 
