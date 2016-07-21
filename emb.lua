@@ -9,6 +9,7 @@ local opt = lapp[[
 	--modelPath (default '')
 	--n_labs (default 18)
 	--n_time (default 36)
+	--use_split_data (default 1)
 ]]
 
 inPath = opt.inPath
@@ -16,8 +17,7 @@ modelPath = opt.modelPath
 outDir = opt.outDir
 n_labs = opt.n_labs
 n_time = opt.n_time
-datasets = {'emb_features'}--{'train','validation','test'}
-batch_size = 10000
+use_split_data = opt.use_split_data
 
 fullModel = torch.load(modelPath)
 model = nn.Sequential()
@@ -28,10 +28,17 @@ model:add(fullModel.modules[1].modules[3])
 X = {}
 
 inFile = hdf5.open(inPath, 'r')
-X['emb_features'] = inFile:read('/X_scaled')
---X['train'] = inFile:read('/batch_input_train')
---X['validation'] = inFile:read('/batch_input_validation') 
---X['test'] = inFile:read('/batch_input_test')
+if (use_split_data == 1) then
+	X['train'] = inFile:read('/batch_input_train')
+	X['validation'] = inFile:read('/batch_input_validation') 
+	X['test'] = inFile:read('/batch_input_test')
+	datasets = {'train','validation','test'}
+	batch_size = 1000
+else
+	X['emb_features'] = inFile:read('/X_scaled')
+	datasets = {'emb_features'}
+	batch_size = 10000
+end
 
 for d = 1, #datasets do 
 
@@ -44,12 +51,14 @@ for d = 1, #datasets do
 	for i = 1, n_batches do
 		print(i..'/'..n_batches)
 
-		start = i * batch_size
+		start = (i - 1) * batch_size + 1
 		if (i == n_batches) then
 			stop = X[dataset]:dataspaceSize()[1]
 		else
-			stop = (i+1)*batch_size
+			stop = i*batch_size
 		end
+		print(start)
+		print(stop)
 		n_examples = stop - start + 1
 		X_batch = X[dataset]:partial({start, stop}, {1, 1}, {1, n_labs}, {1, X[dataset]:dataspaceSize()[4]})
 		X_batch_padded = torch.zeros(n_examples, 1, n_labs, n_time)

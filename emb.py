@@ -10,10 +10,31 @@ import os
 import features
 features = reload(features)
 
+def add_R(X, R):
+	assert X.shape[0] == R.shape[0]	
+	new_X = np.zeros((X.shape[0], X.shape[1] + R.shape[1]))
+	new_X[:,:X.shape[1]] = X
+	new_X[:,X.shape[1]:] = R
+	return new_X
+
+def get_reps(in_fname):
+	
+	with tables.open_file(in_fname, mode='r') as fin:
+		R_train = fin.root.R_train[:]
+		R_validation = fin.root.R_validation[:]
+		R_test = fin.root.R_test[:]
+
+	return R_train, R_validation, R_test
+
+def reshape4(R):
+	X = np.zeros((R.shape[0], 1, 1, R.shape[1]))
+	X[:,0,0,:] = R
+	return X
+
 def reshape(X):
 	return X.reshape((X.shape[0], np.prod(X.shape[1:])))
 
-def emb(emb_features_path, features_split_fname, emb_features_transformed_fname, verbose=True):
+def emb(emb_features_path, features_split_path, emb_features_transformed_fname, verbose=True):
 
 	if os.path.isdir(emb_features_path):
 		fnames = os.listdir(emb_features_path)
@@ -24,7 +45,7 @@ def emb(emb_features_path, features_split_fname, emb_features_transformed_fname,
 
 	# reduce data
 
-	model = sklearn.decomposition.IncrementalPCA(n_components=2) 
+	model = sklearn.decomposition.IncrementalPCA(n_components=200) 
 	
 	for fno, fname in enumerate(fnames):
 		if verbose:
@@ -50,7 +71,48 @@ def emb(emb_features_path, features_split_fname, emb_features_transformed_fname,
 
 	# transform data
 
-	X_train, Y_train, X_validation, Y_validation, X_test, Y_test = features.get_data(features_split_fname)
+	if os.path.isdir(features_split_path):
+
+		datasets = ['train','validation','test']
+		X_list = {}
+		n = {}
+		for dataset in datasets:
+			X_list[dataset] = []
+			n[dataset] = 0
+
+		fnames = os.listdir(features_split_path)
+		for fno, fname in enumerate(fnames):
+			print "-->" + str(fno) + '/' + str(len(fnames))
+
+			path = os.path.join(features_split_path, fname)
+			with tables.open_file(path, 'r') as fin:
+				X_scaled = fin.root.X_scaled[:]
+
+			for dataset in datasets:
+				if fname.find(dataset) != -1:
+					X_list[dataset].append(X_scaled)
+					n[dataset] += X_scaled.shape[0]
+					break
+
+		X = {}
+		for dataset in datasets:
+			print dataset
+
+			X[dataset] = np.zeros((n[dataset], X_scaled.shape[1]))
+			start = 0
+			stop = 0
+			for b in range(len(X_list[dataset])):
+				print "-->" + str(b) + '/' + str(len(X_list[dataset]))
+				stop += X_list[dataset][b].shape[0]
+				X[dataset][start:stop] = X_list[dataset][b]
+				start = stop
+
+		X_train = X['train']
+		X_validation = X['validation']
+		X_test = X['test']
+			 
+	else:
+		X_train, Y_train, X_validation, Y_validation, X_test, Y_test = features.get_data(features_split_path)
 
 	R_train = model.transform(reshape(X_train))
 	R_validation = model.transform(reshape(X_validation))

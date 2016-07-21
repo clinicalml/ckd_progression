@@ -74,6 +74,22 @@ class Model():
 		s = {'model': self.model, 'test_auc': float(self.test_auc), 'best_param': list(self.best_param), 'best_auc': float(self.best_auc), 'params': list(self.params), 'param_names': list(self.param_names)} 
 		return s
 
+class L(Model):
+
+	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test):
+		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test)
+		self.model = 'L'
+
+	def format_data(self, X, Y, n_labs=None, age_index=None, gender_index=None):	
+		self.n_features = int(np.prod(X.shape[1:]))
+		X_f = X.reshape((X.shape[0], self.n_features))
+		labels = map(str, range(self.n_features))
+		return X_f, Y[:,0,0,0], labels
+
+	def get_model(self, param):
+		return sklearn.linear_model.LogisticRegression(penalty=param[self.param_name_to_index['penalty']], \
+			C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']], random_state=random_state)
+
 class LMax(Model):
 
 	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test):
