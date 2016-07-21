@@ -10,14 +10,14 @@ import os
 import features
 features = reload(features)
 
-def add_R(X, R):
+def add_emb(X, R):
 	assert X.shape[0] == R.shape[0]	
 	new_X = np.zeros((X.shape[0], X.shape[1] + R.shape[1]))
 	new_X[:,:X.shape[1]] = X
 	new_X[:,X.shape[1]:] = R
 	return new_X
 
-def get_reps(in_fname):
+def get_emb_data(in_fname):
 	
 	with tables.open_file(in_fname, mode='r') as fin:
 		R_train = fin.root.R_train[:]
@@ -45,7 +45,7 @@ def emb(emb_features_path, features_split_path, emb_features_transformed_fname, 
 
 	# reduce data
 
-	model = sklearn.decomposition.IncrementalPCA(n_components=200) 
+	model = sklearn.decomposition.IncrementalPCA(n_components=2) 
 	
 	for fno, fname in enumerate(fnames):
 		if verbose:

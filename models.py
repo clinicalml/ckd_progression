@@ -6,6 +6,9 @@ import pdb
 import yaml 
 import warnings
 
+import emb
+emb = reload(emb)
+
 random_state = 3
 
 def add_feature_names_to_labels(labels, db, feature_loincs, feature_diseases, feature_drug_classes):
@@ -39,10 +42,23 @@ def evaluate(model, X, y):
 
 class Model():
 
-	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs=None, age_index=None, gender_index=None):
+	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs=None, age_index=None, gender_index=None, emb_data=None):
 		self.X_train, self.Y_train, self.labels = self.format_data(X_train, Y_train, n_labs, age_index, gender_index)
 		self.X_validation, self.Y_validation, _ = self.format_data(X_validation, Y_validation, n_labs, age_index, gender_index)
 		self.X_test, self.Y_test, _ = self.format_data(X_test, Y_test, n_labs, age_index, gender_index)
+
+		if emb_data is not None:
+			self.X_train = emb.add_emb(self.X_train, emb_data[0])
+			self.X_validation = emb.add_emb(self.X_validation, emb_data[1])
+			self.X_test = emb.add_emb(self.X_test, emb_data[2])
+
+			assert self.X_train.shape[1] == self.X_validation.shape[1]
+			assert self.X_validation.shape[1] == self.X_test.shape[1]
+			self.n_features = self.X_train.shape[1]
+		
+			self.use_emb = True
+		else:
+			self.use_emb = False
 
 		self.validation_auc = {}
 		self.test_auc = None
@@ -71,13 +87,15 @@ class Model():
 		self.test_auc = evaluate(model, self.X_test, self.Y_test)
 
 	def summarize(self):
-		s = {'model': self.model, 'test_auc': float(self.test_auc), 'best_param': list(self.best_param), 'best_auc': float(self.best_auc), 'params': list(self.params), 'param_names': list(self.param_names)} 
+		s = {'model': self.model, 'test_auc': float(self.test_auc), 'best_param': list(self.best_param), 'best_auc': float(self.best_auc), 'params': list(self.params), 'param_names': list(self.param_names)}
+		s['use_emb'] = self.use_emb	
+		s['n_features'] = int(self.n_features) 
 		return s
 
 class L(Model):
 
-	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test):
-		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test)
+	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, emb_data=None):
+		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, emb_data=emb_data)
 		self.model = 'L'
 
 	def format_data(self, X, Y, n_labs=None, age_index=None, gender_index=None):	
@@ -92,8 +110,8 @@ class L(Model):
 
 class LMax(Model):
 
-	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test):
-		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test)
+	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, emb_data=None):
+		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, emb_data=emb_data)
 		self.model = 'LMax'
 
 	def format_data(self, X, Y, n_labs=None, age_index=None, gender_index=None):
@@ -114,8 +132,8 @@ class LMax(Model):
 	
 class L2(Model):
 
-	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs):
-		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs)
+	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, emb_data=None):
+		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, emb_data=emb_data)
 		self.model = 'L2'
 
 	def format_data(self, X, Y, n_labs, age_index=None, gender_index=None):
@@ -150,8 +168,8 @@ class L2(Model):
 
 class L1(Model):
 
-	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, age_index, gender_index):
-		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, age_index, gender_index)
+	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, age_index, gender_index, emb_data=None):
+		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, age_index, gender_index, emb_data=emb_data)
 		self.model = 'L1'
 		self.age_index = age_index
 		self.gender_index = gender_index
@@ -235,8 +253,8 @@ class L1(Model):
 
 class RandomForest(Model):
 
-	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test):
-		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test)
+	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, emb_data=None):
+		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, emb_data=emb_data)
 		self.model = 'RandomForest'
 
 	def format_data(self, X, Y, n_labs=None, age_index=None, gender_index=None):
