@@ -8,6 +8,23 @@ import warnings
 
 random_state = 3
 
+def add_feature_names_to_labels(labels, db, feature_loincs, feature_diseases, feature_drug_classes):
+
+	feature_loinc_names = map(lambda x: db.descs['loinc'][x], feature_loincs)
+	feature_disease_names = map(lambda x: db.descs['icd9'][x], feature_diseases)
+	feature_drug_names = feature_drug_classes
+
+	feature_names = feature_loinc_names + feature_disease_names + feature_drug_names + ['age','sex']
+
+	feature_map = dict((feature_index, feature_name) for feature_index, feature_name in enumerate(feature_names))
+	new_labels = []
+	for label in labels:
+		vals = label.split('_')
+		new_label = vals[0] + '_' + feature_map[int(vals[1])] + '_' + vals[2] + '_' + vals[3]
+		new_labels.append(new_label)
+
+	return new_labels 
+
 def evaluate(model, X, y):
 	proba = model.predict_proba(X)[:,1]
 	fpr, tpr, _ = sklearn.metrics.roc_curve(y, proba)

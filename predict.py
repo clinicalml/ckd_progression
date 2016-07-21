@@ -26,7 +26,7 @@ def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False)
 		print "-->L2"
 
 	model = models.L2(X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs)
-	model.crossvalidate(params=[[False, True], [0.01, 0.1, 1, 5, 10, 20, 50, 100, 200]], param_names=['fit_intercept', 'C'])
+	model.crossvalidate(params=[[False, True], [0.01, 0.05, 0.1, 0.5, 1, 5, 10]], param_names=['fit_intercept', 'C'])
 	model.test()
 	results.append(model.summarize())
 
@@ -34,7 +34,7 @@ def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False)
 		print "-->L1"
 
 	model = models.L1(X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, age_index, gender_index)
-	model.crossvalidate(params=[[False, True], [0.01, 0.1, 1, 5, 10, 20, 50, 100, 200]], param_names=['fit_intercept', 'C'])
+	model.crossvalidate(params=[[False, True], [0.01, 0.05, 0.1, 0.5, 1, 5, 10]], param_names=['fit_intercept', 'C'])
 	model.test()
 	results.append(model.summarize())
 
