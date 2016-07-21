@@ -5,6 +5,7 @@ import sklearn.decomposition
 import tables
 import pdb
 import h5py
+import os
 
 import features
 features = reload(features)
@@ -12,7 +13,12 @@ features = reload(features)
 def reshape(X):
 	return X.reshape((X.shape[0], np.prod(X.shape[1:])))
 
-def emb(emb_features_fname, features_split_fname, emb_features_transformed_fname, verbose=True):
+def emb(emb_features_path, features_split_fname, emb_features_transformed_fname, verbose=True):
+
+	if os.path.isdir(emb_features_path):
+		fnames = os.listdir(emb_features_path)
+	else:
+		fnames = [emb_features_path]
 
 	batch_size = 256
 
@@ -20,18 +26,27 @@ def emb(emb_features_fname, features_split_fname, emb_features_transformed_fname
 
 	model = sklearn.decomposition.IncrementalPCA(n_components=2) 
 	
-	with tables.open_file(emb_features_fname, 'r') as fin:
-		nrows = fin.root.X_scaled.nrows
-		X_scaled = fin.root.X_scaled
+	for fno, fname in enumerate(fnames):
+		if verbose:
+			print str(fno) + '/' + str(len(fnames))
 
-		batches = [list(batch) for batch in zip(range(0, nrows, batch_size), range(batch_size, nrows, batch_size))]
+		if os.path.isdir(emb_features_path):
+			path = os.path.join(emb_features_path, fname)
+		else:
+			path = fname
 
-		for i, (start, stop) in enumerate(batches):
-			if verbose:
-				print str(i) + '/' + str(len(batches))
+		with tables.open_file(path, 'r') as fin:
+			nrows = fin.root.X_scaled.nrows
+			X_scaled = fin.root.X_scaled
 
-			X_batch = X_scaled[start:stop]
-			model.partial_fit(reshape(X_batch))
+			batches = [list(batch) for batch in zip(range(0, nrows, batch_size), range(batch_size, nrows, batch_size))]
+
+			for i, (start, stop) in enumerate(batches):
+				if verbose:
+					print "-->" + str(i) + '/' + str(len(batches))
+
+				X_batch = X_scaled[start:stop]
+				model.partial_fit(reshape(X_batch))
 
 	# transform data
 
