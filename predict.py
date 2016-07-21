@@ -13,6 +13,30 @@ emb = reload(emb)
 import models
 models = reload(models)
 
+def analyze(in_fname):
+
+	data = yaml.load(open(in_fname, 'r'))
+
+	results = {}	
+	results['model'] = []
+	results['test_auc'] = []
+	results['validate_auc'] = []
+	results['use_emb'] = []
+	results['emb_fname'] = []
+
+	for i in range(len(data)):
+		results['model'].append(data[i]['model'])
+		results['test_auc'].append(data[i]['test_auc'])
+		results['validate_auc'].append(data[i]['best_auc'])
+		results['use_emb'].append(data[i]['use_emb'])
+		results['emb_fname'].append(data[i]['emb_fname'].split('/')[-1])
+
+	results = pd.DataFrame(results)
+	results = results.sort('test_auc', ascending=False)
+
+	return results
+
+
 def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False, emb_fnames=None):
 
 	if verbose:
@@ -21,11 +45,11 @@ def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False,
 	X_train, Y_train, X_validation, Y_validation, X_test, Y_test = features.get_data(in_fname)
 
 	emb_data_list = [None]
+	emb_fname_list = ['']
 	if emb_fnames is not None:
 		for emb_fname in emb_fnames:
 			emb_data_list.append(emb.get_emb_data(emb_fname))
-	else:
-		emb_fnames = ['']
+			emb_fname_list.append(emb_fname)
 
 	if verbose:
 		print "training, validating and testing models"
@@ -43,7 +67,7 @@ def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False,
 		model.crossvalidate(params=[[False, True], [0.01, 0.05, 0.1, 0.5, 1, 5, 10]], param_names=['fit_intercept', 'C'])
 		model.test()
 		s = model.summarize()
-		s['emb_fname'] = emb_fnames[e]  
+		s['emb_fname'] = emb_fname_list[e]  
 		results.append(s)
 
 		if verbose:
@@ -53,7 +77,7 @@ def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False,
 		model.crossvalidate(params=[[False, True], [0.01, 0.05, 0.1, 0.5, 1, 5, 10]], param_names=['fit_intercept', 'C'])
 		model.test()
 		s = model.summarize()
-		s['emb_fname'] = emb_fnames[e]  
+		s['emb_fname'] = emb_fname_list[e]  
 		results.append(s)
 
 		'''
@@ -66,7 +90,7 @@ def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False,
 		model.crossvalidate(params=params, param_names=param_names)
 		model.test()
 		s = model.summarize()
-		s['emb_fname'] = emb_fnames[e]  
+		s['emb_fname'] = emb_fname_list[e]  
 		results.append(s)
 		'''
 
@@ -78,7 +102,7 @@ def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False,
 			model.crossvalidate(params=[['l1','l2'],[False, True], [0.01, 0.05, 0.1, 0.5, 1, 5, 10]], param_names=['penalty','fit_intercept','C'])
 			model.test()
 			s = model.summarize()
-			s['emb_fname'] = emb_fnames[e]  
+			s['emb_fname'] = emb_fname_list[e]  
 			results.append(s)
 
 	with open(out_fname, 'w') as fout:
