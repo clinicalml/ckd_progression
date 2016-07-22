@@ -34,40 +34,47 @@ def reshape4(R):
 def reshape(X):
 	return X.reshape((X.shape[0], np.prod(X.shape[1:])))
 
-def emb(emb_features_path, features_split_path, emb_features_transformed_fname, verbose=True):
-
-	if os.path.isdir(emb_features_path):
-		fnames = os.listdir(emb_features_path)
-	else:
-		fnames = [emb_features_path]
+def emb(features_split_path, emb_features_transformed_fname, verbose=True, emb_features_path=None):
 
 	batch_size = 256
 
+	if emb_features_path is None:
+		reduce_emb = False
+	else:
+		reduce_emb = True
+
 	# reduce data
 
-	model = sklearn.decomposition.IncrementalPCA(n_components=2) 
-	
-	for fno, fname in enumerate(fnames):
-		if verbose:
-			print str(fno) + '/' + str(len(fnames))
+	if reduce_emb:
 
 		if os.path.isdir(emb_features_path):
-			path = os.path.join(emb_features_path, fname)
+			fnames = os.listdir(emb_features_path)
 		else:
-			path = fname
+			fnames = [emb_features_path]
 
-		with tables.open_file(path, 'r') as fin:
-			nrows = fin.root.X_scaled.nrows
-			X_scaled = fin.root.X_scaled
+		model = sklearn.decomposition.IncrementalPCA(n_components=2) 
+	
+		for fno, fname in enumerate(fnames):
+			if verbose:
+				print str(fno) + '/' + str(len(fnames))
 
-			batches = [list(batch) for batch in zip(range(0, nrows, batch_size), range(batch_size, nrows, batch_size))]
+			if os.path.isdir(emb_features_path):
+				path = os.path.join(emb_features_path, fname)
+			else:
+				path = fname
 
-			for i, (start, stop) in enumerate(batches):
-				if verbose:
-					print "-->" + str(i) + '/' + str(len(batches))
+			with tables.open_file(path, 'r') as fin:
+				nrows = fin.root.X_scaled.nrows
+				X_scaled = fin.root.X_scaled
 
-				X_batch = X_scaled[start:stop]
-				model.partial_fit(reshape(X_batch))
+				batches = [list(batch) for batch in zip(range(0, nrows, batch_size), range(batch_size, nrows, batch_size))]
+
+				for i, (start, stop) in enumerate(batches):
+					if verbose:
+						print "-->" + str(i) + '/' + str(len(batches))
+
+					X_batch = X_scaled[start:stop]
+					model.partial_fit(reshape(X_batch))
 
 	# transform data
 
@@ -114,9 +121,14 @@ def emb(emb_features_path, features_split_path, emb_features_transformed_fname, 
 	else:
 		X_train, Y_train, X_validation, Y_validation, X_test, Y_test = features.get_data(features_split_path)
 
-	R_train = model.transform(reshape(X_train))
-	R_validation = model.transform(reshape(X_validation))
-	R_test = model.transform(reshape(X_test))
+	if reduce_emb:
+		R_train = model.transform(reshape(X_train))
+		R_validation = model.transform(reshape(X_validation))
+		R_test = model.transform(reshape(X_test))
+	else:
+		R_train = X_train
+		R_validation = X_validation
+		R_test = X_test
 
 	# write output
 

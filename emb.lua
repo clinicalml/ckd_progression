@@ -10,6 +10,7 @@ local opt = lapp[[
 	--n_labs (default 18)
 	--n_time (default 36)
 	--use_split_data (default 1)
+	--modelDefn (default 1)
 ]]
 
 inPath = opt.inPath
@@ -20,10 +21,15 @@ n_time = opt.n_time
 use_split_data = opt.use_split_data
 
 fullModel = torch.load(modelPath)
-model = nn.Sequential()
-model:add(fullModel.modules[1].modules[1])
-model:add(fullModel.modules[1].modules[2])
-model:add(fullModel.modules[1].modules[3])
+
+if (modelDefn == 1) then
+	model = nn.Sequential()
+	model:add(fullModel.modules[1].modules[1])
+	model:add(fullModel.modules[1].modules[2])
+	model:add(fullModel.modules[1].modules[3])
+else
+	model = fullModel	
+end 
 
 X = {}
 
@@ -69,10 +75,29 @@ for d = 1, #datasets do
 				end
 			end
 		end
-		R = model:forward(X_batch_padded:cuda()):clone()
+
 		outFile = hdf5.open(outDir..dataset..'_batch_'..i..'.h5', 'w')
-		outFile:write('/X_scaled', R:double())
+
+		if (modelDefn == 1) then
+			R = model:forward(X_batch_padded:cuda()):clone()
+			outFile:write('/X_scaled', R:double())
+		else
+			R = model:forward(X_batch_padded:cuda())
+			Rout = torch.zeros(R[1]:size()[1], #R)
+			for j = 1,R[1]:size()[1] do
+				for k = 1,#R do
+					p_0 = R[k][{j,1}]
+					p_1 = R[k][{j,2}]
+					Rout[{j,k}] = p_1
+					--if (p_1 >= p_0) then
+					--	Rout[{j,k}] = 1
+					--end
+				end
+			end
+		end
+		outFile:write('/X_scaled', Rout:double())
 		outFile:close()
+
 	end
  
 end
