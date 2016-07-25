@@ -93,7 +93,8 @@ def setup(demo_fname, outcome_fname, cohort_fname):
 	return cohort_data
 	 
 def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_upper_bound, \
-	training_window_days=12*30, buffer_window_days=3*30, outcome_window_days=12*30, time_period_days=4*30, time_scale_days=30, gap_days=None, calc_gfr=False, verbose=False):
+	training_window_days=12*30, buffer_window_days=3*30, outcome_window_days=12*30, time_period_days=4*30, time_scale_days=30, \
+	gap_days=None, calc_gfr=False, verbose=False):
 
 	disease_loinc_index_set = set([db.code_to_index['loinc'][code] for code in disease_loincs])
 
@@ -227,7 +228,8 @@ def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_up
 	
 			# Has the condition in the training window?
 	
-			lab_dates_low = [date for d, date in enumerate(lab_dates) if lab_values[d] >= lab_lower_bound and lab_values[d] < lab_upper_bound and lab_dates[d] >= training_start_date and lab_dates[d] < training_end_date]
+			lab_dates_low = [date for d, date in enumerate(lab_dates) \
+				 if lab_values[d] >= lab_lower_bound and lab_values[d] < lab_upper_bound and lab_dates[d] >= training_start_date and lab_dates[d] < training_end_date]
 			if len(lab_dates_low) > 0:
 				if gap_days is not None:
 					diff = (np.max(lab_dates_low) - np.min(lab_dates_low)).days

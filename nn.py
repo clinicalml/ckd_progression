@@ -12,8 +12,8 @@ import random
 def evaluate(results_fname, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, verbose=True):
 
 	random_seed = 345
-	n_epochs = 10
-	n_cv_iters = 10
+	n_epochs = 100
+	n_cv_iters = 100
 
 	best_valid_auc = -np.inf
 	best_valid_epoch = -1
@@ -27,7 +27,7 @@ def evaluate(results_fname, X_train, Y_train, X_validation, Y_validation, X_test
 	for i in range(n_cv_iters):
 		print i
 
-		model = 'mlp'
+		model = 'cnn'
 		n_hidden = np.random.randint(10, 200)
 		n_filters = np.random.randint(4, 32)
 		k_horiz = np.random.randint(3, 10)

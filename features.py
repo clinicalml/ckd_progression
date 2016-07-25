@@ -33,14 +33,28 @@ def get_data(in_fname, get_person_ids=False):
 	else:
 		return X_train, Y_train, X_validation, Y_validation, X_test, Y_test
 	
-def features(db, training_data, feature_loincs, feature_diseases, feature_drugs, time_scale_days, out_fname, calc_gfr=False, verbose=True, add_age_sex=False):
+def features(db, training_data, feature_loincs, feature_diseases, feature_drugs, time_scale_days, out_fname, calc_gfr=False, verbose=True, add_age_sex=False, \
+	outcome_icd9s=[]):
 
 	data = training_data.copy(deep=True)
 	data = data.reset_index()
 
-	data = data[['person','y','training_start_date','training_end_date','age','gender']]
-	data.columns = ['person','y','start_date','end_date','age','gender']
-	data = data[['person','y','start_date','end_date','age','gender']]
+	if len(outcome_icd9s) == 0:
+		multiple_outcomes = False
+	else:
+		multiple_outcomes = True
+		outcome_icd9_indices = [db.code_to_index['icd9'][code] for code in outcome_icd9s]
+
+	if multiple_outcomes:
+		dcols = ['person','y','training_start_date','training_end_date','age','gender','outcome_start_date','outcome_end_date']
+		ndcols = ['person','y','start_date','end_date','age','gender', 'outcome_start_date', 'outcome_end_date']
+	else:
+		dcols = ['person','y','training_start_date','training_end_date','age','gender']
+		ndcols = ['person','y','start_date','end_date','age','gender']
+ 
+	data = data[dcols]
+	data.columns = ndcols
+	data = data[ndcols]
 
 	disease_loinc_indices = [db.code_to_index['loinc'][code] for code in feature_loincs]
 	disease_icd9_indices = [set([db.code_to_index['icd9'][code] for code in codes]) for codes in feature_diseases] 
@@ -56,7 +70,11 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 
 	outlier_threshold = 3
 	n_labs = len(feature_loincs)
-	n_outcomes = 1
+
+	if multiple_outcomes:
+		n_outcomes = len(outcome_icd9s)
+	else:
+		n_outcomes = 1
 
 	# Open HDF5 file and initialize arrays
 
@@ -85,6 +103,10 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 			start_date = dt.datetime.strptime(data['start_date'].iloc[i], '%Y%m%d')
 			end_date = dt.datetime.strptime(data['end_date'].iloc[i], '%Y%m%d')
 			y_person = int(data['y'].iloc[i])
+
+			if multiple_outcomes:
+				outcome_start_date = dt.datetime.strptime(data['outcome_start_date'].iloc[i], '%Y%m%d')
+				outcome_end_date = dt.datetime.strptime(data['outcome_end_date'].iloc[i], '%Y%m%d')
 
 			obs_date_strs = db.db['loinc'][person][0]
 			obs_M = db.db['loinc'][person][1]
@@ -120,10 +142,14 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 						if val > 0:
 							vals[key].append(val)
 
-			# Aggregate lab values over time dimension
+			# Initialize arrays
 
 			X_person = np.zeros((1, 1, n_features, n_time))
 			Z_person = np.zeros((1, 1, n_features, n_time))
+			Y_person = np.zeros((1, n_outcomes, 1, 1))
+
+			# Aggregate lab values over time dimension
+
 			for key in vals.keys():
 				if len(vals[key]) > 0:
 					X_person[0,0,key[0],key[1]] = np.mean(vals[key])
@@ -150,6 +176,25 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 						t = int(np.floor(((date - start_date).days)/float(time_scale_days)))
 						X_person[0,0,disease_index + len(feature_loincs),t] = 1
 						Z_person[0,0,disease_index + len(feature_loincs),t] = 1
+
+			# Get icd9 values for outcome if multiple outcomes are being used
+
+			if multiple_outcomes:
+
+				for d, date_index in enumerate(icd9_nz_date_indices):
+					icd9_index = icd9_nz_icd9_indices[d]
+					disease_index = -1
+					for c, o_idx in enumerate(outcome_icd9_indices):
+						if o_idx == icd9_index:
+							disease_index = c
+							break
+ 					
+					if disease_index != -1:
+						date_str = icd9_date_strs[date_index]
+						date = dt.datetime.strptime(date_str, '%Y%m%d')
+						if date >= outcome_start_date and date < outcome_end_date:
+							t = int(np.floor(((date - outcome_start_date).days)/float(time_scale_days)))
+							Y_person[0,disease_index,0,0] = 1
 
 			# Get ndc values
 
@@ -190,8 +235,8 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 			X.append(X_person)	
 			Z.append(Z_person)
 
-			Y_person = np.zeros((1, n_outcomes, 1, 1))
-			Y_person[0,0,0,0] = y_person 
+			if multiple_outcomes == False:
+				Y_person[0,0,0,0] = y_person 
 			Y.append(Y_person)
 
 			P.append(np.array([person]))
@@ -241,12 +286,35 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 
 		fout.close()
 
-def train_validation_test_split(n_people, out_fname, p_test=1./3, p_validation=1./3):
+def train_validation_test_split(people, out_fname, p_test=1./3, p_validation=1./3, prev_assignment_fname=None, prev_people=[], verbose=True):
+
+	if prev_assignment_fname is not None:
+		prev_assignment = util.read_list_files(prev_assignment_fname)		
+
+	assignment = np.array(['none']*len(people), dtype='S20')
+	for i in range(len(people)):
+		if verbose:
+			print i
+		for j in range(len(prev_people)):
+			if people[i] == prev_people[j]:
+				assignment[i] = prev_assignment[j]
+				break
+
+	n_people = np.sum(assignment == 'none')
 	n_test = int(p_test*n_people)
 	n_validation = int(p_validation*n_people)
 	n_train = n_people - n_test - n_validation
-	assignment = ['train']*n_train + ['validation']*n_validation + ['test']*n_test
-	np.random.shuffle(assignment)
+	assignment_remain = ['train']*n_train + ['validation']*n_validation + ['test']*n_test
+	np.random.shuffle(assignment_remain)
+
+	j = 0
+	for i in range(len(people)):
+		if assignment[i] == 'none':
+			assignment[i] = assignment_remain[j]
+			j += 1
+
+	assert np.sum(assignment == 'none') == 0
+
 	with open(out_fname, 'w') as fout:
 		fout.write('\n'.join(assignment))
 

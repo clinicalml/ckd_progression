@@ -19,6 +19,7 @@ outDir = opt.outDir
 n_labs = opt.n_labs
 n_time = opt.n_time
 use_split_data = opt.use_split_data
+modelDefn = opt.modelDefn
 
 fullModel = torch.load(modelPath)
 
@@ -27,8 +28,12 @@ if (modelDefn == 1) then
 	model:add(fullModel.modules[1].modules[1])
 	model:add(fullModel.modules[1].modules[2])
 	model:add(fullModel.modules[1].modules[3])
-else
-	model = fullModel	
+elseif (modelDefn == 2) then
+	model = fullModel
+elseif (modelDefn == 3) then
+	model = fullModel
+else 
+	model = fullModel.modules[1]
 end 
 
 X = {}
@@ -66,19 +71,24 @@ for d = 1, #datasets do
 		print(start)
 		print(stop)
 		n_examples = stop - start + 1
-		X_batch = X[dataset]:partial({start, stop}, {1, 1}, {1, n_labs}, {1, X[dataset]:dataspaceSize()[4]})
-		X_batch_padded = torch.zeros(n_examples, 1, n_labs, n_time)
-		for j = 1, X_batch:size()[1] do
-			for k = 1, X_batch:size()[3] do
-				for l = 1, X_batch:size()[4] do
-					X_batch_padded[{j,1,k,l}] = X_batch[{j,1,k,l}]
+
+		if (modelDefn == 1) or (modelDefn == 2) then
+			X_batch = X[dataset]:partial({start, stop}, {1, 1}, {1, n_labs}, {1, X[dataset]:dataspaceSize()[4]})
+			X_batch_padded = torch.zeros(n_examples, 1, n_labs, n_time)
+			for j = 1, X_batch:size()[1] do
+				for k = 1, X_batch:size()[3] do
+					for l = 1, X_batch:size()[4] do
+						X_batch_padded[{j,1,k,l}] = X_batch[{j,1,k,l}]
+					end
 				end
 			end
+		else
+			X_batch_padded = X[dataset]:partial({start, stop}, {1, 1}, {1, n_labs}, {1, n_time})
 		end
 
 		outFile = hdf5.open(outDir..dataset..'_batch_'..i..'.h5', 'w')
 
-		if (modelDefn == 1) then
+		if (modelDefn == 1) or (modelDefn == 4) then
 			R = model:forward(X_batch_padded:cuda()):clone()
 			outFile:write('/X_scaled', R:double())
 		else
@@ -94,8 +104,8 @@ for d = 1, #datasets do
 					--end
 				end
 			end
+			outFile:write('/X_scaled', Rout:double())
 		end
-		outFile:write('/X_scaled', Rout:double())
 		outFile:close()
 
 	end

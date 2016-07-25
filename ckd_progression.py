@@ -35,18 +35,19 @@ def run(out_dir, data_paths_fname, stats_list_fname, use_just_common_labs=True, 
 	time_period_days = 4*30
 	time_scale_days = 30
 	gap_days = 90
-	calc_gfr = True
 
 	if use_just_common_labs == False:
 		feature_loincs = util.read_list_files('data/ckd_loincs.txt')
 		feature_diseases = [[icd9] for icd9 in util.read_list_files('data/kidney_disease_mi_icd9s.txt')]
 		feature_drugs = [util.read_list_files('data/drug_class_'+dc.lower().replace('-','_').replace(',','_').replace(' ','_')+'_ndcs.txt') for dc in util.read_list_files('data/kidney_disease_drug_classes.txt')]
 		add_age_sex = True
+		calc_gfr = True
 	else: 
 		feature_loincs = util.read_list_files('data/common_loincs.txt')
 		feature_diseases = []	
 		feature_drugs = []
 		add_age_sex = False
+		calc_gfr = False
 
 	n_labs = len(feature_loincs)
 
@@ -81,8 +82,9 @@ def run(out_dir, data_paths_fname, stats_list_fname, use_just_common_labs=True, 
 
 	outcome_data = btd.build_outcome_data(out_dir, outcome_fname)
 	cohort_data = btd.setup(data_paths['demographics_fname'], outcome_fname, cohort_fname)
+	# calc_gfr = True here because it's required to define the condition (it shouldn't matter as much for feature construction)
 	training_data = btd.build_training_data(db, cohort_data, gfr_loincs, lab_lower_bound, lab_upper_bound, \
-		training_window_days, buffer_window_days, outcome_window_days, time_period_days, time_scale_days, gap_days, calc_gfr, verbose)
+		training_window_days, buffer_window_days, outcome_window_days, time_period_days, time_scale_days, gap_days, calc_gfr=True, verbose=True)
 	training_data.to_csv(training_data_fname, index=False, sep='\t')
 
 	if verbose:
@@ -92,7 +94,7 @@ def run(out_dir, data_paths_fname, stats_list_fname, use_just_common_labs=True, 
 
 	if split_fname is None:
 		split_fname = out_dir + stats_key + '_split.txt'
-		features.train_validation_test_split(len(training_data['person'].unique()), split_fname)
+		features.train_validation_test_split(training_data['person'].unique(), split_fname, verbose=verbose)
 
 	features.split(features_fname, features_split_fname, split_fname, verbose)
 	

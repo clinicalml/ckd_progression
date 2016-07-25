@@ -42,10 +42,10 @@ def evaluate(model, X, y):
 
 class Model():
 
-	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs=None, age_index=None, gender_index=None, emb_data=None):
-		self.X_train, self.Y_train, self.labels = self.format_data(X_train, Y_train, n_labs, age_index, gender_index)
-		self.X_validation, self.Y_validation, _ = self.format_data(X_validation, Y_validation, n_labs, age_index, gender_index)
-		self.X_test, self.Y_test, _ = self.format_data(X_test, Y_test, n_labs, age_index, gender_index)
+	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs=None, age_index=None, gender_index=None, emb_data=None, verbose=False):
+		self.X_train, self.Y_train, self.labels = self.format_data(X_train, Y_train, n_labs, age_index, gender_index, verbose=verbose)
+		self.X_validation, self.Y_validation, _ = self.format_data(X_validation, Y_validation, n_labs, age_index, gender_index, verbose=verbose)
+		self.X_test, self.Y_test, _ = self.format_data(X_test, Y_test, n_labs, age_index, gender_index, verbose=verbose)
 
 		if emb_data is not None:
 			self.X_train = emb.add_emb(self.X_train, emb_data[0])
@@ -98,7 +98,7 @@ class L(Model):
 		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, emb_data=emb_data)
 		self.model = 'L'
 
-	def format_data(self, X, Y, n_labs=None, age_index=None, gender_index=None):	
+	def format_data(self, X, Y, n_labs=None, age_index=None, gender_index=None, verbose=False):	
 		self.n_features = int(np.prod(X.shape[1:]))
 		X_f = X.reshape((X.shape[0], self.n_features))
 		labels = map(str, range(self.n_features))
@@ -114,7 +114,7 @@ class LMax(Model):
 		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, emb_data=emb_data)
 		self.model = 'LMax'
 
-	def format_data(self, X, Y, n_labs=None, age_index=None, gender_index=None):
+	def format_data(self, X, Y, n_labs=None, age_index=None, gender_index=None, verbose=False):
 	
 		X_f = np.max(X[:, 0, :, :], axis=2)
 		self.n_features = X_f.shape[1]
@@ -136,7 +136,7 @@ class L2(Model):
 		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, emb_data=emb_data)
 		self.model = 'L2'
 
-	def format_data(self, X, Y, n_labs, age_index=None, gender_index=None):
+	def format_data(self, X, Y, n_labs, age_index=None, gender_index=None, verbose=False):
 	
 		self.n_features = X.shape[2]	
 		X_f = np.zeros((X.shape[0], self.n_features))
@@ -168,13 +168,13 @@ class L2(Model):
 
 class L1(Model):
 
-	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, age_index, gender_index, emb_data=None):
-		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, age_index, gender_index, emb_data=emb_data)
+	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, age_index, gender_index, emb_data=None, verbose=False):
+		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, age_index, gender_index, emb_data=emb_data, verbose=verbose)
 		self.model = 'L1'
 		self.age_index = age_index
 		self.gender_index = gender_index
 
-	def format_data(self, X, Y, n_labs, age_index=None, gender_index=None):
+	def format_data(self, X, Y, n_labs, age_index=None, gender_index=None, verbose=False):
 
 		n_examples = X.shape[0]
 		n_time = X.shape[3]
@@ -184,7 +184,12 @@ class L1(Model):
 		window_lens = [3, 6, 12]
 
 		for window_len in window_lens:
+			if verbose:
+				print str(window_len)
 			for l in range(n_labs):
+				if verbose:
+					print "--->"+str(l) + '/' + str(n_labs)
+
 				v = X[:,0,l,(n_time - window_len):n_time]
 				inc = np.zeros(len(v))
 				dec = np.zeros(len(v))
@@ -257,7 +262,7 @@ class RandomForest(Model):
 		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, emb_data=emb_data)
 		self.model = 'RandomForest'
 
-	def format_data(self, X, Y, n_labs=None, age_index=None, gender_index=None):
+	def format_data(self, X, Y, n_labs=None, age_index=None, gender_index=None, verbose=False):
 		self.n_features = np.prod(X.shape[1:])
 		X_f = np.reshape(X, (X.shape[0], self.n_features))
 		y_f = Y[:,0,0,0]
