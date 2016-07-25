@@ -80,7 +80,6 @@ def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False,
 		s['emb_fname'] = emb_fname_list[e]  
 		results.append(s)
 
-		'''
 		if verbose:
 			print "-->RandomForest"
 
@@ -92,7 +91,6 @@ def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False,
 		s = model.summarize()
 		s['emb_fname'] = emb_fname_list[e]  
 		results.append(s)
-		'''
 
 		if emb_data is not None:
 			if verbose:
