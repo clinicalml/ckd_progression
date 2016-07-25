@@ -43,11 +43,11 @@ def run(out_dir, data_paths_fname, stats_list_fname, use_just_common_labs=True, 
 		add_age_sex = True
 		calc_gfr = True
 	else: 
-		feature_loincs = util.read_list_files('data/common_loincs.txt')
+		feature_loincs = util.read_list_files('data/ckd_loincs.txt') #'data/common_loincs.txt')
 		feature_diseases = []	
 		feature_drugs = []
 		add_age_sex = False
-		calc_gfr = False
+		calc_gfr = True #False
 
 	n_labs = len(feature_loincs)
 
