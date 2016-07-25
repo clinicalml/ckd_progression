@@ -82,7 +82,7 @@ def run(out_dir, data_paths_fname, stats_list_fname, use_just_common_labs=True, 
 
 	outcome_data = btd.build_outcome_data(out_dir, outcome_fname)
 	cohort_data = btd.setup(data_paths['demographics_fname'], outcome_fname, cohort_fname)
-	# calc_gfr = True here because it's required to define the condition (it shouldn't matter as much for feature construction)
+	# calc_gfr = True here because it's required to define the condition
 	training_data = btd.build_training_data(db, cohort_data, gfr_loincs, lab_lower_bound, lab_upper_bound, \
 		training_window_days, buffer_window_days, outcome_window_days, time_period_days, time_scale_days, gap_days, calc_gfr=True, verbose=verbose)
 	training_data.to_csv(training_data_fname, index=False, sep='\t')
