@@ -7,8 +7,8 @@ local opt = lapp[[
 	--inPath (default ''),
 	--outDir (default ''), 
 	--modelPath (default '')
-	--n_labs (default 18)
-	--n_time (default 36)
+	--n_labs (default 15)
+	--n_time (default 12)
 	--use_split_data (default 1)
 	--modelDefn (default 1)
 ]]

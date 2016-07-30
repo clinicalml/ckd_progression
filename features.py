@@ -7,6 +7,7 @@ import os
 import pdb
 import tables
 import time
+import h5py
 
 import util
 util = reload(util)
@@ -70,11 +71,12 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 
 	outlier_threshold = 3
 	n_labs = len(feature_loincs)
+	max_y = np.max(data['y'])
 
 	if multiple_outcomes:
-		n_outcomes = len(outcome_icd9s)
+		n_outcomes = len(outcome_icd9s) + max_y
 	else:
-		n_outcomes = 1
+		n_outcomes = max_y
 
 	# Open HDF5 file and initialize arrays
 
@@ -194,7 +196,7 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 						date = dt.datetime.strptime(date_str, '%Y%m%d')
 						if date >= outcome_start_date and date < outcome_end_date:
 							t = int(np.floor(((date - outcome_start_date).days)/float(time_scale_days)))
-							Y_person[0,disease_index,0,0] = 1
+							Y_person[0,disease_index+max_y,0,0] = 1
 
 			# Get ndc values
 
@@ -235,8 +237,13 @@ def features(db, training_data, feature_loincs, feature_diseases, feature_drugs,
 			X.append(X_person)	
 			Z.append(Z_person)
 
-			if multiple_outcomes == False:
-				Y_person[0,0,0,0] = y_person 
+			if max_y == 1:
+				Y_person[0,0,0,0] = y_person
+			else:
+				for yi in range(max_y):
+					if y_person == yi:
+						Y_person[0,yi,0,0] = 1
+
 			Y.append(Y_person)
 
 			P.append(np.array([person]))

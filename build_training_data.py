@@ -63,10 +63,10 @@ def setup(demo_fname, outcome_fname, cohort_fname):
 	outcome_data.columns = ['person','first_outcome']
 
 	people = pd.read_csv(cohort_fname, sep='\t', dtype=str)
-	assert len(people.columns) == 2
-	assert people.columns[0] == 'person'
+	assert people.columns[1] != 'person'
 	stat_colname = people.columns[1]
-	people = people[(people[stat_colname].isnull() == False) & (people[stat_colname] > 0)]
+	people = people[['person',stat_colname]]
+	people = people[(people[stat_colname].isnull() == False) & (people[stat_colname] != '')]
 	people['first_outcome'] = ''
 	people = people[['person','first_outcome']]
 
@@ -94,7 +94,8 @@ def setup(demo_fname, outcome_fname, cohort_fname):
 	 
 def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_upper_bound, \
 	training_window_days=12*30, buffer_window_days=3*30, outcome_window_days=12*30, time_period_days=4*30, time_scale_days=30, \
-	gap_days=None, calc_gfr=False, verbose=False):
+	gap_days=None, calc_gfr=False, verbose=False, \
+	progression=False, progression_lab_lower_bound=None, progression_lab_upper_bound=None, progression_gap_days=None, progression_init_stages=None, progression_stages=None):
 
 	disease_loinc_index_set = set([db.code_to_index['loinc'][code] for code in disease_loincs])
 
@@ -112,6 +113,12 @@ def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_up
 	training_data['outcome_end_date'] = []
 	training_data['age'] = []
 	training_data['gender'] = []
+
+	if progression:
+		training_data['stage_x'] = []
+		training_data['stage_y'] = []
+		training_data['kf_x'] = []
+		training_data['kf_y'] = []
 	
 	lab_data = {}
 	lab_data['person'] = []
@@ -227,38 +234,135 @@ def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_up
 			doesnt_have_outcome_in_training_window = (first_outcome_date >= outcome_start_date)
 	
 			# Has the condition in the training window?
-	
-			lab_dates_low = [date for d, date in enumerate(lab_dates) \
-				 if lab_values[d] >= lab_lower_bound and lab_values[d] < lab_upper_bound and lab_dates[d] >= training_start_date and lab_dates[d] < training_end_date]
-			if len(lab_dates_low) > 0:
-				if gap_days is not None:
-					diff = (np.max(lab_dates_low) - np.min(lab_dates_low)).days
-					if diff >= gap_days:
-						has_condition_in_training_window = True
+
+			if progression == False:	
+
+				lab_dates_low = [date for d, date in enumerate(lab_dates) \
+					 if lab_values[d] >= lab_lower_bound and lab_values[d] < lab_upper_bound and lab_dates[d] >= training_start_date and lab_dates[d] < training_end_date]
+				if len(lab_dates_low) > 0:
+					if gap_days is not None:
+						diff = (np.max(lab_dates_low) - np.min(lab_dates_low)).days
+						if diff >= gap_days:
+							has_condition_in_training_window = True
+						else:
+							has_condition_in_training_window = False
 					else:
-						has_condition_in_training_window = False
+						has_condition_in_training_window = True
 				else:
-					has_condition_in_training_window = True
-			else:
-				has_condition_in_training_window = False
+					has_condition_in_training_window = False
 
 			# Collect data 
 
-			if doesnt_have_outcome_in_training_window == True and has_condition_in_training_window == True and training_start_date >= data_min_date and outcome_end_date < data_max_date:
+			if progression:
+
+				if (training_start_date >= data_min_date) and (outcome_end_date < data_max_date):
+
+					# training 
+
+					stage_x_person = -1
+
+					stage_map = {} 
+					date_map = {}
+					for plb in range(len(progression_lab_upper_bound)):
+						for d, date in enumerate(lab_dates):
+							if lab_dates[d] >= training_start_date and lab_dates[d] < training_end_date:
+								if lab_values[d] < progression_lab_upper_bound[plb]:
+									if stage_map.has_key(plb) == False:
+										stage_map[plb] = 0
+										date_map[plb] = lab_dates[d]
+									else:
+										stage_map[plb] += (lab_dates[d] - date_map[plb]).days
+										date_map[plb] = lab_dates[d]
+								else:
+									stage_map.pop(plb, None)
+									date_map.pop(plb, None)
+
+					for plb in range(len(progression_lab_upper_bound)):
+						if stage_map.has_key(plb):
+							if stage_map[plb] >= progression_gap_days:
+								stage_x_person = plb
 			
-				if first_outcome_date < outcome_end_date:
-					y_person = 1
-				else:	
-					y_person = 0	
+					# outcome
+
+					stage_y_person = -1
+
+					stage_map = {} 
+					date_map = {}
+					outcome_stage_map = {}
+					for plb in range(len(progression_lab_upper_bound)):
+						for d, date in enumerate(lab_dates):
+							if lab_dates[d] >= outcome_start_date and lab_dates[d] < outcome_end_date:
+								if lab_values[d] < progression_lab_upper_bound[plb]:
+									if stage_map.has_key(plb) == False:
+										stage_map[plb] = 0
+										date_map[plb] = lab_dates[d]
+									else:
+										stage_map[plb] += (lab_dates[d] - date_map[plb]).days
+										date_map[plb] = lab_dates[d]
+								else:
+									if stage_map.has_key(plb):
+										if outcome_stage_map.has_key(plb) == False:
+											outcome_stage_map[plb] = stage_map[plb]
+										else:
+											if stage_map[plb] > outcome_stage_map[plb]:
+												outcome_stage_map[plb] = stage_map[plb]
+
+									stage_map.pop(plb, None)
+									date_map.pop(plb, None)
+
+					for plb in range(len(progression_lab_upper_bound)):
+						if outcome_stage_map.has_key(plb):
+							if outcome_stage_map[plb] >= progression_gap_days:
+								stage_y_person = plb
+
+					# add row
+
+					if ((stage_x_person in progression_init_stages) == True) and ((stage_y_person in progression_stages) == True):
+
+						if stage_x_person < stage_y_person:
+							y_person = 1
+						else:
+							y_person = 0
+
+						if doesnt_have_outcome_in_training_window:
+							kf_x_person = 0
+						else:
+							kf_x_person = 1
+
+						if first_outcome_date < outcome_end_date:
+							kf_y_person = 1
+						else:	
+							kf_y_person = 0	
+
+						training_data['person'].append(person)
+						training_data['stage_x'].append(stage_x_person)
+						training_data['stage_y'].append(stage_y_person)
+						training_data['kf_x'].append(kf_x_person)
+						training_data['kf_y'].append(kf_y_person)
+						training_data['y'].append(y_person)
+						training_data['training_start_date'].append(dt.datetime.strftime(training_start_date, '%Y%m%d'))
+						training_data['training_end_date'].append(dt.datetime.strftime(training_end_date, '%Y%m%d'))
+						training_data['outcome_start_date'].append(dt.datetime.strftime(outcome_start_date, '%Y%m%d'))
+						training_data['outcome_end_date'].append(dt.datetime.strftime(outcome_end_date, '%Y%m%d'))
+						training_data['age'].append(age)
+						training_data['gender'].append(gender)
+
+			else:
+				if doesnt_have_outcome_in_training_window == True and has_condition_in_training_window == True and training_start_date >= data_min_date and outcome_end_date < data_max_date:
+			
+					if first_outcome_date < outcome_end_date:
+						y_person = 1
+					else:	
+						y_person = 0	
 					
-				training_data['person'].append(person)
-				training_data['y'].append(y_person)
-				training_data['training_start_date'].append(dt.datetime.strftime(training_start_date, '%Y%m%d'))
-				training_data['training_end_date'].append(dt.datetime.strftime(training_end_date, '%Y%m%d'))
-				training_data['outcome_start_date'].append(dt.datetime.strftime(outcome_start_date, '%Y%m%d'))
-				training_data['outcome_end_date'].append(dt.datetime.strftime(outcome_end_date, '%Y%m%d'))
-				training_data['age'].append(age)
-				training_data['gender'].append(gender)
+					training_data['person'].append(person)
+					training_data['y'].append(y_person)
+					training_data['training_start_date'].append(dt.datetime.strftime(training_start_date, '%Y%m%d'))
+					training_data['training_end_date'].append(dt.datetime.strftime(training_end_date, '%Y%m%d'))
+					training_data['outcome_start_date'].append(dt.datetime.strftime(outcome_start_date, '%Y%m%d'))
+					training_data['outcome_end_date'].append(dt.datetime.strftime(outcome_end_date, '%Y%m%d'))
+					training_data['age'].append(age)
+					training_data['gender'].append(gender)
 
 	training_data = pd.DataFrame(training_data)
 

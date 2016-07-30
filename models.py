@@ -65,13 +65,16 @@ class Model():
 		self.best_param = None
 		self.best_auc = -np.inf
 
-	def crossvalidate(self, params, param_names):
+	def crossvalidate(self, params, param_names, verbose=False):
 
 		self.params = params
 		self.param_names = param_names
 		self.param_name_to_index = dict((param_name, index) for index, param_name in enumerate(param_names))
 
 		for param in itertools.product(*params):
+			if verbose:
+				print param
+
 			model = self.get_model(param)
 			model.fit(self.X_train, self.Y_train)
 			self.validation_auc[param] = evaluate(model, self.X_validation, self.Y_validation)
@@ -132,8 +135,8 @@ class LMax(Model):
 	
 class L2(Model):
 
-	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, emb_data=None):
-		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, emb_data=emb_data)
+	def __init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, emb_data=None, verbose=False):
+		Model.__init__(self, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, emb_data=emb_data, verbose=verbose)
 		self.model = 'L2'
 
 	def format_data(self, X, Y, n_labs, age_index=None, gender_index=None, verbose=False):
@@ -142,6 +145,9 @@ class L2(Model):
 		X_f = np.zeros((X.shape[0], self.n_features))
 
 		for i in range(X.shape[0]):
+			if verbose:
+				print str(i) + '/' + str(X.shape[0])
+
 			for l in range(n_labs):
 				x = X[i,0,l,:]
 				x = x[x != 0]

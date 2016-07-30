@@ -41,10 +41,11 @@ def evaluate(results_fname, n_cv_iters, n_epochs, X_train, Y_train, X_validation
 		init_learning_rate = np.random.uniform(0.001, 2)
 		rho = np.random.uniform(0.5, 0.95)	
 
-		model = NeuralNet(model, n_labs, n_features, n_time, n_hidden, n_filters, n_filters2, k_horiz, k_horiz2, pool_horiz, dropout, regularization, init_learning_rate, rho, random_seed)
-		model.train_and_validate(n_epochs, X_train, Y_train, X_validation, Y_validation, verbose)
-		#except:
-		#	print "error"
+		try:
+			model = NeuralNet(model, n_labs, n_features, n_time, n_hidden, n_filters, n_filters2, k_horiz, k_horiz2, pool_horiz, dropout, regularization, init_learning_rate, rho, random_seed)
+			model.train_and_validate(n_epochs, X_train, Y_train, X_validation, Y_validation, verbose)
+		except:
+			print "error"
 
 		if model.best_valid_auc > best_valid_auc:
 			best_valid_auc = model.best_valid_auc
@@ -103,11 +104,11 @@ class NeuralNet():
 
 			w1 = theano.shared(value=self.init_weights((n_time*n_labs, n_hidden)))
 			b1 = theano.shared(value=np.zeros(n_hidden, dtype=theano.config.floatX))
-			w2 = theano.shared(value=self.init_weights((n_hidden, n_classes)))
+			w2 = theano.shared(value=self.init_weights((n_hidden + n_features, n_classes)))
 			b2 = theano.shared(value=np.zeros(n_classes, dtype=theano.config.floatX))
 
-			log_prob = self.get_mlp_log_prob(X, w1, b1, w2, b2, dropout, deterministic=False)
-			test_log_prob = self.get_mlp_log_prob(X, w1, b1, w2, b2, dropout, deterministic=True)
+			log_prob = self.get_mlp_log_prob(X, Z, w1, b1, w2, b2, dropout, deterministic=False)
+			test_log_prob = self.get_mlp_log_prob(X, Z, w1, b1, w2, b2, dropout, deterministic=True)
 
 			self.params = [w1, b1, w2, b2]
 
@@ -115,16 +116,16 @@ class NeuralNet():
 
 			tdim1 = 1 + n_time - k_horiz
 			tdim2 = 1 + tdim1 - pool_horiz
-			n_conv = int(n_filters*n_features*tdim2)
+			n_conv = int(n_filters*n_labs*tdim2)
 
 			w1 = theano.shared(value=self.init_weights((n_filters, 1, 1, k_horiz)))
 			w2 = theano.shared(value=self.init_weights((n_conv, n_hidden)))
 			b2 = theano.shared(value=np.zeros(n_hidden, dtype=theano.config.floatX))
-			w3 = theano.shared(value=self.init_weights((n_hidden, n_classes)))
+			w3 = theano.shared(value=self.init_weights((n_hidden + n_features, n_classes)))
 			b3 = theano.shared(value=np.zeros(n_classes, dtype=theano.config.floatX))
 
-			log_prob = self.get_cnn_log_prob(X, w1, w2, b2, w3, b3, pool_horiz, n_conv, dropout, deterministic=False)
-			test_log_prob = self.get_cnn_log_prob(X, w1, w2, b2, w3, b3, pool_horiz, n_conv, dropout, deterministic=True)
+			log_prob = self.get_cnn_log_prob(X, Z, w1, w2, b2, w3, b3, pool_horiz, n_conv, dropout, deterministic=False)
+			test_log_prob = self.get_cnn_log_prob(X, Z, w1, w2, b2, w3, b3, pool_horiz, n_conv, dropout, deterministic=True)
 
 			self.params = [w1, w2, b2, w3, b3]
 
@@ -181,7 +182,18 @@ class NeuralNet():
 				l = T.switch(self.srng.binomial(size=l.shape, p=(1. - dropout)), l, 0)
 		return l
 
-	def get_cnn_log_prob(self, X, w1, w2, b2, w3, b3, pool_horiz, n_conv, dropout, deterministic):
+	def get_mlp_log_prob(self, X, Z, w1, b1, w2, b2, dropout, deterministic):
+
+		l0 = X.reshape((X.shape[0], self.n_labs*self.n_time))
+		l1 = T.nnet.relu(T.dot(l0, w1) + b1)
+		l1 = self.add_dropout(l1, dropout, deterministic)
+		l2 = T.concatenate([l1, Z], axis=1)
+		l3 = T.dot(l2, w2) + b2
+		log_prob = T.nnet.logsoftmax(l3)
+
+		return log_prob 
+
+	def get_cnn_log_prob(self, X, Z, w1, w2, b2, w3, b3, pool_horiz, n_conv, dropout, deterministic):
 
 		l1 = T.nnet.relu(T.nnet.conv2d(X, w1, border_mode='valid', subsample=(1, 1)))
 		l2 = max_pool_2d(l1, ds=(1, pool_horiz), st=(1, 1), ignore_border=True)
@@ -189,8 +201,9 @@ class NeuralNet():
 		l3 = self.add_dropout(l3, dropout, deterministic)
 		l4 = T.nnet.relu(T.dot(l3, w2) + b2)
 		l4 = self.add_dropout(l4, dropout, deterministic)
-		l5 = T.dot(l4, w3) + b3
-		log_prob = T.nnet.logsoftmax(l5)
+		l5 = T.concatenate([l4, Z], axis=1)
+		l6 = T.dot(l5, w3) + b3
+		log_prob = T.nnet.logsoftmax(l6)
 
 		return log_prob 
 
@@ -222,15 +235,6 @@ class NeuralNet():
 
 		return log_prob
 	
-	def get_mlp_log_prob(self, X, w1, b1, w2, b2, dropout, deterministic):
-
-		l0 = X.reshape((X.shape[0], self.n_features*self.n_time))
-		l1 = T.nnet.relu(T.dot(l0, w1) + b1)
-		l1 = self.add_dropout(l1, dropout, deterministic)
-		log_prob = T.nnet.logsoftmax(T.dot(l1, w2) + b2)
-
-		return log_prob 
-
 	def calc_auc(self, X, Y):
 		x = X[:,:,0:self.n_labs,:]
 		z = X[:,0,self.n_labs:(self.n_labs + self.n_features),0]
