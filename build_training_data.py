@@ -197,29 +197,65 @@ def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_up
 			lab_data['code'].append(lab_codes[l])
 			lab_data['value'].append(lab_values[l])			
 
-		# Find time periods of dense observations
+		# Find onset date
 
-		training_start_dates = []
+		if progression:
 
-		if len(lab_dates) >= 2:	
+			stage_map = {} 
+			date_map = {}
+			onset_date_map = {}
+			has_onset = False
+			for plb in range(len(progression_lab_upper_bound)):
+				for d, date in enumerate(lab_dates):
+					if lab_values[d] < progression_lab_upper_bound[plb]:
+						if stage_map.has_key(plb) == False:
+							stage_map[plb] = 0
+							date_map[plb] = lab_dates[d]
+							onset_date_map[plb] = lab_dates[d]
+						else:
+							stage_map[plb] += (lab_dates[d] - date_map[plb]).days
+							date_map[plb] = lab_dates[d]
+	
+						if (stage_map[plb] >= progression_gap_days) and ((plb in progression_stages) == True):
+							onset_date = onset_date_map[plb]
+							has_onset = True
+							break
+					else:
+						stage_map.pop(plb, None)
+						date_map.pop(plb, None)
+						
+				if has_onset == True:
+					break
 
-			min_date = np.min(lab_dates)
-			for t0 in range(len(lab_dates)):
-				all_days = np.array(map(lambda x: (x - lab_dates[t0]).days, lab_dates))
-				days = np.unique(all_days[all_days >= 0]) 
-				is_consecutive = True
-				for start_day, end_day in zip(range(0, training_window_days, time_period_days), range(time_period_days, training_window_days + time_period_days, time_period_days)):
-					if np.sum((days >= start_day) & (days < end_day)) == 0:
-						is_consecutive = False
-						break
+		if True:
+
+			# Find time periods of dense observations
+
+			training_start_dates = []
+
+			if len(lab_dates) >= 2:	
+
+				min_date = np.min(lab_dates)
+				for t0 in range(len(lab_dates)):
+					all_days = np.array(map(lambda x: (x - lab_dates[t0]).days, lab_dates))
+					days = np.unique(all_days[all_days >= 0]) 
+					is_consecutive = True
+					for start_day, end_day in zip(range(0, training_window_days, time_period_days), range(time_period_days, training_window_days + time_period_days, time_period_days)):
+						if np.sum((days >= start_day) & (days < end_day)) == 0:
+							is_consecutive = False
+							break
 					
-				if is_consecutive == True:
-					date = min_date + dt.timedelta(days=int(time_scale_days*np.floor(((lab_dates[t0] - min_date).days)/float(time_scale_days))))
-					training_start_dates.append(date)
+					if is_consecutive == True:
+						date = min_date + dt.timedelta(days=int(time_scale_days*np.floor(((lab_dates[t0] - min_date).days)/float(time_scale_days))))
+						training_start_dates.append(date)
 
-			training_start_dates = np.unique(training_start_dates)
+				training_start_dates = np.unique(training_start_dates)
 
-		training_start_dates = np.array(training_start_dates)
+			training_start_dates = np.array(training_start_dates)
+
+		else:
+			
+			training_start_dates = np.unique(lab_dates)
 
 		# Build examples
 
@@ -255,9 +291,12 @@ def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_up
 
 			if progression:
 
-				if (training_start_date >= data_min_date) and (outcome_end_date < data_max_date):
-
-					# training 
+				if has_onset:
+					doesnt_have_onset_in_training_window = (onset_date >= outcome_start_date)
+				else:	
+					doesnt_have_onset_in_training_window = True
+				
+				if (doesnt_have_onset_in_training_window == True) and (training_start_date >= data_min_date) and (outcome_end_date < data_max_date):
 
 					stage_x_person = -1
 
@@ -281,62 +320,30 @@ def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_up
 						if stage_map.has_key(plb):
 							if stage_map[plb] >= progression_gap_days:
 								stage_x_person = plb
-			
-					# outcome
 
-					stage_y_person = -1
-
-					stage_map = {} 
-					date_map = {}
-					outcome_stage_map = {}
-					for plb in range(len(progression_lab_upper_bound)):
-						for d, date in enumerate(lab_dates):
-							if lab_dates[d] >= outcome_start_date and lab_dates[d] < outcome_end_date:
-								if lab_values[d] < progression_lab_upper_bound[plb]:
-									if stage_map.has_key(plb) == False:
-										stage_map[plb] = 0
-										date_map[plb] = lab_dates[d]
-									else:
-										stage_map[plb] += (lab_dates[d] - date_map[plb]).days
-										date_map[plb] = lab_dates[d]
-								else:
-									if stage_map.has_key(plb):
-										if outcome_stage_map.has_key(plb) == False:
-											outcome_stage_map[plb] = stage_map[plb]
-										else:
-											if stage_map[plb] > outcome_stage_map[plb]:
-												outcome_stage_map[plb] = stage_map[plb]
-
-									stage_map.pop(plb, None)
-									date_map.pop(plb, None)
-
-					for plb in range(len(progression_lab_upper_bound)):
-						if outcome_stage_map.has_key(plb):
-							if outcome_stage_map[plb] >= progression_gap_days:
-								stage_y_person = plb
-
-					# add row
-
-					if ((stage_x_person in progression_init_stages) == True) and ((stage_y_person in progression_stages) == True):
-
-						if stage_x_person < stage_y_person:
-							y_person = 1
-						else:
-							y_person = 0
+					if (stage_x_person in progression_init_stages) == True:
 
 						if doesnt_have_outcome_in_training_window:
 							kf_x_person = 0
 						else:
 							kf_x_person = 1
-
+	
 						if first_outcome_date < outcome_end_date:
 							kf_y_person = 1
 						else:	
 							kf_y_person = 0	
 
+						if has_onset == True:
+							if (onset_date >= outcome_start_date) and (onset_date < outcome_end_date):
+								y_person = 1
+							else:
+								y_person = 0
+						else:
+							y_person = 0
+
 						training_data['person'].append(person)
 						training_data['stage_x'].append(stage_x_person)
-						training_data['stage_y'].append(stage_y_person)
+						training_data['stage_y'].append(-1)
 						training_data['kf_x'].append(kf_x_person)
 						training_data['kf_y'].append(kf_y_person)
 						training_data['y'].append(y_person)

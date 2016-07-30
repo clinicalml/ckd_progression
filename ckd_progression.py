@@ -35,15 +35,15 @@ def run(out_dir, data_paths_fname, stats_list_fname, use_just_common_labs=True, 
 	gap_days = None
 	training_window_days = 12*30
 	buffer_window_days = 3*30
-	outcome_window_days = 12*30
-	time_period_days = 4*30
+	outcome_window_days = 3*12*30
+	time_period_days = 6*30
 	time_scale_days = 30
 	progression = True
 	progression_lab_lower_bound = [120, 90, 60, 30, 15, 0.01]
 	progression_lab_upper_bound = [150, 120, 90, 60, 30, 15]
 	progression_gap_days = 90
-	progression_stages = [2,3,4,5] # 0-indexed and corresponds to indices of the progression lab bound
-	progression_init_stages = [2,3,4]
+	progression_stages = [3,4,5] # 0-indexed and corresponds to indices of the progression lab bound
+	progression_init_stages = [0,1,2]
 
 	if use_just_common_labs == False:
 		feature_loincs = util.read_list_files('data/ckd_loincs.txt')
@@ -55,7 +55,7 @@ def run(out_dir, data_paths_fname, stats_list_fname, use_just_common_labs=True, 
 		feature_loincs = util.read_list_files('data/ckd_loincs.txt') #'data/common_loincs.txt')
 		feature_diseases = []	
 		feature_drugs = []
-		add_age_sex = True
+		add_age_sex = False
 		calc_gfr = True
 
 	n_labs = len(feature_loincs)
