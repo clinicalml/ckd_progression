@@ -37,7 +37,7 @@ def analyze(in_fname):
 	return results
 
 
-def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False, emb_fnames=None):
+def predict(in_fname, regularizations, n_labs, age_index, gender_index, out_fname, verbose=False, emb_fnames=None):
 
 	if verbose:
 		print "loading data"
@@ -64,7 +64,7 @@ def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False,
 			print "-->L2"
 
 		model = models.L2(X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, emb_data)
-		model.crossvalidate(params=[[False, True], [0.005, 0.01, 0.05, 0.1, 0.5, 1]], param_names=['fit_intercept', 'C'])
+		model.crossvalidate(params=[[False, True], regularizations], param_names=['fit_intercept', 'C'])
 		model.test()
 		s = model.summarize()
 		s['emb_fname'] = emb_fname_list[e]  
@@ -74,7 +74,7 @@ def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False,
 			print "-->L1"
 
 		model = models.L1(X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, age_index, gender_index, emb_data)
-		model.crossvalidate(params=[[False, True], [0.005, 0.01, 0.05, 0.1, 0.5, 1]], param_names=['fit_intercept', 'C'])
+		model.crossvalidate(params=[[False, True], regularizations], param_names=['fit_intercept', 'C'])
 		model.test()
 		s = model.summarize()
 		s['emb_fname'] = emb_fname_list[e]  
@@ -97,7 +97,7 @@ def predict(in_fname, n_labs, age_index, gender_index, out_fname, verbose=False,
 				print "-->Only embeddings"
 
 			model = models.L(emb_data[0], Y_train, emb_data[1], Y_validation, emb_data[2], Y_test, None)
-			model.crossvalidate(params=[['l1','l2'],[False, True], [0.01, 0.05, 0.1, 0.5, 1, 5, 10]], param_names=['penalty','fit_intercept','C'])
+			model.crossvalidate(params=[['l1','l2'],[False, True], regularizations], param_names=['penalty','fit_intercept','C'])
 			model.test()
 			s = model.summarize()
 			s['emb_fname'] = emb_fname_list[e]  
