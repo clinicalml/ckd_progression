@@ -1,0 +1,16 @@
+stats_key: 'kidney_disease'
+outcome_stat_name: 'first_kidney_failure'
+cohort_stat_name: 'n_gap_stage45'
+lab_lower_bound: 15
+lab_upper_bound: 30
+training_window_days: 360
+buffer_window_days: 90
+outcome_window_days: 360
+time_period_days: 120
+time_scale_days: 30
+gap_days: 90
+progression: False
+use_just_labs: False
+feature_loincs_fname: 'data/ckd_loincs.txt'
+add_age_sex: True
+calc_gfr: True

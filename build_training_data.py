@@ -92,17 +92,16 @@ def setup(demo_fname, outcome_fname, cohort_fname):
 
 	return cohort_data
 	 
-def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_upper_bound, \
-	training_window_days=12*30, buffer_window_days=3*30, outcome_window_days=12*30, time_period_days=4*30, time_scale_days=30, \
+def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound=None, lab_upper_bound=None, \
+	training_window_days=12*30, buffer_window_days=3*30, outcome_window_days=12*30, time_period_days=None, time_scale_days=30, \
 	gap_days=None, calc_gfr=False, verbose=False, \
-	progression=False, progression_lab_lower_bound=None, progression_lab_upper_bound=None, progression_gap_days=None, progression_init_stages=None, progression_stages=None):
+	progression=False, progression_lab_lower_bound=None, progression_lab_upper_bound=None, progression_gap_days=None, progression_init_stages=None, progression_stages=None, progression_diff_outcome=False, debug=False):
 
 	disease_loinc_index_set = set([db.code_to_index['loinc'][code] for code in disease_loincs])
 
 	data_min_date = dt.datetime.strptime(db.data_paths['min_date'], '%Y%m%d')
 	data_max_date = dt.datetime.strptime(db.data_paths['max_date'], '%Y%m%d')
 	first_outcome_col = 'first_outcome'
-	n_time_periods = int(np.floor(training_window_days/float(time_period_days)))
 
 	training_data = {}
 	training_data['person'] = []
@@ -129,6 +128,10 @@ def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_up
 	for i in range(len(cohort_data)):
 		if verbose == True:
 			print i
+
+		if debug:
+			if i == 10000:
+				break
 
 		# Get patient data
 
@@ -197,9 +200,7 @@ def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_up
 			lab_data['code'].append(lab_codes[l])
 			lab_data['value'].append(lab_values[l])			
 
-		# Find onset date
-
-		if progression:
+		if (progression == True) and (progression_diff_outcome == False):
 
 			stage_map = {} 
 			date_map = {}
@@ -227,7 +228,31 @@ def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_up
 				if has_onset == True:
 					break
 
-		if True:
+		elif (progression == True) and (progression_diff_outcome == True):
+
+			stage_map = {} 
+			date_map = {}
+			onset_date_map = {}
+			stage_onset_date_map = {}
+			for plb in range(len(progression_lab_upper_bound)):
+				for d, date in enumerate(lab_dates):
+					if lab_values[d] < progression_lab_upper_bound[plb]:
+						if stage_map.has_key(plb) == False:
+							stage_map[plb] = 0
+							date_map[plb] = lab_dates[d]
+							onset_date_map[plb] = lab_dates[d]
+						else:
+							stage_map[plb] += (lab_dates[d] - date_map[plb]).days
+							date_map[plb] = lab_dates[d]
+	
+						if (stage_map[plb] >= progression_gap_days):
+							if stage_onset_date_map.has_key(plb) == False:
+								stage_onset_date_map[plb] = onset_date_map[plb]
+					else:
+						stage_map.pop(plb, None)
+						date_map.pop(plb, None)
+			
+		if time_period_days is not None:
 
 			# Find time periods of dense observations
 
@@ -291,12 +316,19 @@ def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_up
 
 			if progression:
 
-				if has_onset:
-					doesnt_have_onset_in_training_window = (onset_date >= outcome_start_date)
-				else:	
-					doesnt_have_onset_in_training_window = True
-				
-				if (doesnt_have_onset_in_training_window == True) and (training_start_date >= data_min_date) and (outcome_end_date < data_max_date):
+				if progression_diff_outcome:
+					eligible = (training_start_date >= data_min_date) and (outcome_end_date < data_max_date)
+				else:
+					if has_onset:
+						doesnt_have_onset_in_training_window = (onset_date >= outcome_start_date)
+					else:	
+						doesnt_have_onset_in_training_window = True
+
+					eligible = (doesnt_have_onset_in_training_window == True) and (training_start_date >= data_min_date) and (outcome_end_date < data_max_date)
+	
+				if eligible:
+
+					# training
 
 					stage_x_person = -1
 
@@ -321,7 +353,51 @@ def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_up
 							if stage_map[plb] >= progression_gap_days:
 								stage_x_person = plb
 
-					if (stage_x_person in progression_init_stages) == True:
+					# outcome
+
+					stage_y_person = -1
+
+					stage_map = {}
+					date_map = {}
+					outcome_stage_map = {}
+					for plb in range(len(progression_lab_upper_bound)):
+						for d, date in enumerate(lab_dates):
+							if lab_dates[d] >= outcome_start_date and lab_dates[d] < outcome_end_date:
+								if lab_values[d] < progression_lab_upper_bound[plb]:
+									if stage_map.has_key(plb) == False:
+										stage_map[plb] = 0
+										date_map[plb] = lab_dates[d]
+									else:
+										stage_map[plb] += (lab_dates[d] - date_map[plb]).days
+										date_map[plb] = lab_dates[d]
+								else:
+									if stage_map.has_key(plb):
+										if outcome_stage_map.has_key(plb) == False:
+											outcome_stage_map[plb] = stage_map[plb]
+										else:
+											if stage_map[plb] > outcome_stage_map[plb]:
+												outcome_stage_map[plb] = stage_map[plb]
+	
+									stage_map.pop(plb, None)
+									date_map.pop(plb, None)
+
+					for plb in range(len(progression_lab_upper_bound)):
+						if outcome_stage_map.has_key(plb):	
+							if outcome_stage_map[plb] >= progression_gap_days:
+								stage_y_person = plb
+
+					# add row
+				
+					if progression_diff_outcome:
+						doesnt_have_stage_onset_in_training_window = True
+						if (stage_x_person < stage_y_person) and (stage_x_person != -1) and (stage_y_person != -1):
+							if stage_onset_date_map[stage_y_person] < outcome_start_date:
+								doesnt_have_stage_onset_in_training_window = False
+						add_row = ((stage_x_person in progression_init_stages) == True) and ((stage_y_person in progression_stages) == True) and (doesnt_have_stage_onset_in_training_window == True)
+					else:
+						add_row = (stage_x_person in progression_init_stages) == True
+
+					if add_row:
 
 						if doesnt_have_outcome_in_training_window:
 							kf_x_person = 0
@@ -333,17 +409,23 @@ def build_training_data(db, cohort_data, disease_loincs, lab_lower_bound, lab_up
 						else:	
 							kf_y_person = 0	
 
-						if has_onset == True:
-							if (onset_date >= outcome_start_date) and (onset_date < outcome_end_date):
-								y_person = 1
+						if progression_diff_outcome:
+								if (stage_x_person < stage_y_person):
+									y_person = 1
+								else:
+									y_person = 0
+						else:
+							if has_onset == True:
+								if (onset_date >= outcome_start_date) and (onset_date < outcome_end_date):
+									y_person = 1
+								else:
+									y_person = 0
 							else:
 								y_person = 0
-						else:
-							y_person = 0
-
+											
 						training_data['person'].append(person)
 						training_data['stage_x'].append(stage_x_person)
-						training_data['stage_y'].append(-1)
+						training_data['stage_y'].append(stage_y_person)
 						training_data['kf_x'].append(kf_x_person)
 						training_data['kf_y'].append(kf_y_person)
 						training_data['y'].append(y_person)

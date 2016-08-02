@@ -19,44 +19,48 @@ predict = reload(predict)
 import util
 util = reload(util)
 
-def run(out_dir, data_paths_fname, stats_list_fname, use_just_common_labs=True, split_fname=None, check_if_file_exists=False, verbose=True): 
+def run(out_dir, config_fname, data_paths_fname, stats_list_fname, split_fname=None, check_if_file_exists=False, verbose=True): 
 
 	data_paths = util.read_yaml(data_paths_fname)
+	config = util.read_yaml(config_fname)
 
-	stats_key = 'kidney_disease'
-	outcome_stat_name = 'first_kidney_failure'
+	stats_key = config['stats_key']
+	outcome_stat_name = config['outcome_stat_name']
+	cohort_stat_name = config.get('cohort_stat_name', None)
+	lab_lower_bound = config.get('lab_lower_bound', None)
+	lab_upper_bound = config.get('lab_upper_bound', None)
+	gap_days = config.get('gap_days', None)
+	training_window_days = config['training_window_days']
+	buffer_window_days = config['buffer_window_days']
+	outcome_window_days = config['outcome_window_days']
+	time_period_days = config['time_period_days']
+	time_scale_days = config['time_scale_days']
+	use_just_labs = config['use_just_labs']
+	feature_loincs_fname = config['feature_loincs_fname']
+	add_age_sex = config['add_age_sex']
+	calc_gfr = config['calc_gfr']
+	progression = config['progression']
+	progression_lab_lower_bound = config.get('progression_lab_lower_bound', None)
+	progression_lab_upper_bound = config.get('progression_lab_upper_bound', None)
+	progression_gap_days = config.get('progression_gap_days', None)
+	progression_stages = config.get('progression_stages', None)
+	progression_init_stages = config.get('progression_init_stages', None)
+
 	outcome_fname = out_dir + stats_key + '_' + outcome_stat_name + '.txt'
-	cohort_stat_name = 'min_gfr'
-	cohort_fname = out_dir + stats_key + '_' + cohort_stat_name + '.txt'
+	if cohort_stat_name is None:
+		cohort_fname = data_paths['demographics_fname']	
+	else:
+		cohort_fname = out_dir + stats_key + '_' + cohort_stat_name + '.txt'
 	gfr_loincs = util.read_list_files('data/gfr_loincs.txt')
 	training_data_fname = out_dir + stats_key + '_training_data.txt'
-	lab_lower_bound = 0.01
-	lab_upper_bound = 90
-	gap_days = None
-	training_window_days = 12*30
-	buffer_window_days = 3*30
-	outcome_window_days = 3*12*30
-	time_period_days = 6*30
-	time_scale_days = 30
-	progression = True
-	progression_lab_lower_bound = [120, 90, 60, 30, 15, 0.01]
-	progression_lab_upper_bound = [150, 120, 90, 60, 30, 15]
-	progression_gap_days = 90
-	progression_stages = [3,4,5] # 0-indexed and corresponds to indices of the progression lab bound
-	progression_init_stages = [0,1,2]
 
-	if use_just_common_labs == False:
-		feature_loincs = util.read_list_files('data/ckd_loincs.txt')
+	feature_loincs = util.read_list_files(feature_loincs_fname)
+	if use_just_labs == False:
 		feature_diseases = [[icd9] for icd9 in util.read_list_files('data/kidney_disease_mi_icd9s.txt')]
 		feature_drugs = [util.read_list_files('data/drug_class_'+dc.lower().replace('-','_').replace(',','_').replace(' ','_')+'_ndcs.txt') for dc in util.read_list_files('data/kidney_disease_drug_classes.txt')]
-		add_age_sex = True
-		calc_gfr = True
 	else: 
-		feature_loincs = util.read_list_files('data/ckd_loincs.txt') #'data/common_loincs.txt')
 		feature_diseases = []	
 		feature_drugs = []
-		add_age_sex = False
-		calc_gfr = True
 
 	n_labs = len(feature_loincs)
 
@@ -116,21 +120,16 @@ def run(out_dir, data_paths_fname, stats_list_fname, use_just_common_labs=True, 
 if __name__ == '__main__':
 
 	desc = "Run the full pipeline from cohort construction to prediction" 
-	parser = OptionParser(description=desc, usage="usage: %prog [options] data_paths_fname stats_list_fname out_dir")
+	parser = OptionParser(description=desc, usage="usage: %prog [options] config_fname data_paths_fname stats_list_fname out_dir")
 	parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False)
 	parser.add_option('-c', '--check_if_file_exists', action='store_true', dest='check_if_file_exists', default=False)
 	parser.add_option('-s', '--split_fname', action='store', dest='split_fname', default=None)
-	parser.add_option('-f', '--use_ckd_labs_and_non_lab_features', action='store_true', dest='use_ckd_labs_and_non_lab_features', default=False)
 	(options, args) = parser.parse_args()
 
-	assert len(args) == 3
-	data_paths_fname = args[0] 
-	stats_list_fname = args[1]
-	out_dir = args[2]
+	assert len(args) == 4
+	config_fname = args[0]
+	data_paths_fname = args[1] 
+	stats_list_fname = args[2]
+	out_dir = args[3]
 
-	if options.use_ckd_labs_and_non_lab_features == True:
-		use_just_common_labs = False
-	else:
-		use_just_common_labs = True
-
-	run(out_dir, data_paths_fname, stats_list_fname, use_just_common_labs=use_just_common_labs, split_fname=options.split_fname, check_if_file_exists=options.check_if_file_exists, verbose=options.verbose)
+	run(out_dir, config_fname, data_paths_fname, stats_list_fname, split_fname=options.split_fname, check_if_file_exists=options.check_if_file_exists, verbose=options.verbose)

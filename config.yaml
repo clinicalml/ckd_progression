@@ -1,0 +1,17 @@
+stats_key: 'kidney_disease'
+outcome_stat_name: 'first_kidney_failure'
+training_window_days: 360
+buffer_window_days: 90
+outcome_window_days: 1080
+time_scale_days: 30
+progression: True
+progression_lab_lower_bound: [120, 90, 60, 30, 15, 0.01]
+progression_lab_upper_bound: [150, 120, 90, 60, 30, 15]
+progression_gap_days: 90
+progression_init_stages: [2,3,4]
+progression_stages: [2,3,4,5]
+progression_diff_outcome: True
+use_just_labs: True
+feature_loincs_fname: 'data/ckd_progression_loincs.txt'
+add_age_sex: False
+calc_gfr: True
