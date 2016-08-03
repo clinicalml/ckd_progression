@@ -12,6 +12,6 @@ gap_days: 90
 progression: False
 use_just_labs: False
 feature_loincs_fname: 'data/ckd_loincs.txt'
-regularizations: [0.01, 0.1, 1, 5, 10, 20, 50, 100, 200]
+regularizations: [0.005, 0.01, 0.05, 0.1, 0.5, 1, 5]
 add_age_sex: True
 calc_gfr: True
