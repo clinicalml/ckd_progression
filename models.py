@@ -90,7 +90,8 @@ class Model():
 		self.test_auc = evaluate(model, self.X_test, self.Y_test)
 
 	def summarize(self):
-		s = {'model': self.model, 'test_auc': float(self.test_auc), 'best_param': list(self.best_param), 'best_auc': float(self.best_auc), 'params': list(self.params), 'param_names': list(self.param_names)}
+		params = [list(param) for param in self.params]	
+		s = {'model': self.model, 'test_auc': float(self.test_auc), 'best_param': list(self.best_param), 'best_auc': float(self.best_auc), 'params': params, 'param_names': list(self.param_names)}
 		s['use_emb'] = self.use_emb	
 		s['n_features'] = int(self.n_features) 
 		return s
