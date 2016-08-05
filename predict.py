@@ -13,6 +13,9 @@ emb = reload(emb)
 import models
 models = reload(models)
 
+import nn
+nn = reload(nn)
+
 def analyze(in_fname):
 
 	data = yaml.load(open(in_fname, 'r'))
@@ -37,7 +40,7 @@ def analyze(in_fname):
 	return results
 
 
-def predict(in_fname, regularizations, n_labs, age_index, gender_index, out_fname, verbose=False, emb_fnames=None):
+def predict(in_fname, regularizations, n_labs, age_index, gender_index, out_fname, nn_out_fname=None, verbose=False, emb_fnames=None):
 
 	if verbose:
 		print "loading data"
@@ -105,4 +108,9 @@ def predict(in_fname, regularizations, n_labs, age_index, gender_index, out_fnam
 
 	with open(out_fname, 'w') as fout:
 		fout.write(yaml.dump(results))
+
+	if nn_out_fname is not None:
+		best_model = nn.evaluate(nn_out_fname, 100, 20, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, 45, verbose=True)
+
+
 

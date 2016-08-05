@@ -14,3 +14,4 @@ use_just_labs: False
 feature_loincs_fname: 'data/ckd_loincs.txt'
 add_age_sex: True
 calc_gfr: True
+evaluate_nn: False

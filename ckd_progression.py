@@ -39,13 +39,14 @@ def run(out_dir, config_fname, data_paths_fname, stats_list_fname, split_fname=N
 	feature_loincs_fname = config['feature_loincs_fname']
 	add_age_sex = config['add_age_sex']
 	calc_gfr = config['calc_gfr']
-	regularizations = config['regularizations']
+	regularizations = config.get('regularizations', [1])
 	progression = config['progression']
 	progression_lab_lower_bound = config.get('progression_lab_lower_bound', None)
 	progression_lab_upper_bound = config.get('progression_lab_upper_bound', None)
 	progression_gap_days = config.get('progression_gap_days', None)
 	progression_stages = config.get('progression_stages', None)
 	progression_init_stages = config.get('progression_init_stages', None)
+	evaluate_nn = config.get('evaluate_nn', True)
 
 	outcome_fname = out_dir + stats_key + '_' + outcome_stat_name + '.txt'
 	if cohort_stat_name is None:
@@ -75,6 +76,10 @@ def run(out_dir, config_fname, data_paths_fname, stats_list_fname, split_fname=N
 	features_fname = out_dir + stats_key + '_features.h5'
 	features_split_fname = out_dir + stats_key + '_features_split.h5'
 	predict_fname = out_dir + stats_key + '_prediction_results.yaml'
+	if evaluate_nn:
+		nn_predict_fname = out_dir + stats_key + '_nn_prediction_results.yaml'
+	else:
+		nn_predict_fname = None
 
 	if verbose:
 		print "Loading data"
@@ -116,7 +121,7 @@ def run(out_dir, config_fname, data_paths_fname, stats_list_fname, split_fname=N
 	if verbose:
 		print "Training, validating and testing models"
 
-	predict.predict(features_split_fname, regularizations, n_labs, age_index, gender_index, predict_fname)
+	predict.predict(features_split_fname, regularizations, n_labs, age_index, gender_index, predict_fname, nn_predict_fname)
 
 if __name__ == '__main__':
 
