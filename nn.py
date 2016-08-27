@@ -10,9 +10,7 @@ import yaml
 import random
 from theano.tensor.nnet.bn import batch_normalization
 
-def evaluate(results_fname, n_cv_iters, n_epochs, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, models=['mlp','cnn','cnn2'], verbose=True):
-
-	random_seed = 345
+def evaluate(results_fname, n_cv_iters, n_epochs, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, n_labs, random_seed, models=['mlp','cnn','cnn2'], verbose=True):
 
 	best_valid_auc = -np.inf
 	best_valid_epoch = -1

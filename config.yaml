@@ -13,5 +13,7 @@ progression: False
 use_just_labs: False
 feature_loincs_fname: 'data/ckd_loincs.txt'
 regularizations: [0.005, 0.01, 0.05, 0.1, 0.5, 1, 5]
+lin_n_cv_iters: -1
+n_cv_iters: 100
 add_age_sex: True
 calc_gfr: True

@@ -40,6 +40,8 @@ def run(out_dir, config_fname, data_paths_fname, stats_list_fname, split_fname=N
 	add_age_sex = config['add_age_sex']
 	calc_gfr = config['calc_gfr']
 	regularizations = config.get('regularizations', [1])
+	lin_n_cv_iters = config.get('lin_n_cv_iters', -1)
+	n_cv_iters = config.get('n_cv_iters', -1)
 	progression = config['progression']
 	progression_lab_lower_bound = config.get('progression_lab_lower_bound', None)
 	progression_lab_upper_bound = config.get('progression_lab_upper_bound', None)
@@ -121,7 +123,7 @@ def run(out_dir, config_fname, data_paths_fname, stats_list_fname, split_fname=N
 	if verbose:
 		print "Training, validating and testing models"
 
-	predict.predict(features_split_fname, regularizations, n_labs, age_index, gender_index, predict_fname, nn_predict_fname)
+	predict.predict(features_split_fname, lin_n_cv_iters, n_cv_iters, regularizations, n_labs, age_index, gender_index, predict_fname, nn_predict_fname)
 
 if __name__ == '__main__':
 

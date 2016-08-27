@@ -9,8 +9,6 @@ import warnings
 import emb
 emb = reload(emb)
 
-random_state = 3
-
 def add_feature_names_to_labels(labels, db, feature_loincs, feature_diseases, feature_drug_classes):
 
 	feature_loinc_names = map(lambda x: db.descs['loinc'][x], feature_loincs)
@@ -62,38 +60,130 @@ class Model():
 
 		self.validation_auc = {}
 		self.test_auc = None
-		self.best_param = None
 		self.best_auc = -np.inf
+		self.best_param = None
 
-	def crossvalidate(self, params, param_names, verbose=False):
+		self.test_auc_std = -np.inf
+		self.best_auc_std = -np.inf
+
+		self.test_auc_perc = None
+		self.best_auc_perc = None
+
+		self.test_auc_map = {}
+		self.best_auc_map = {}
+		self.best_param_map = {}
+
+		self.perc = [0,1,5,10,25,50,75,90,95,99,100]
+
+	def crossvalidate(self, params, param_names, n_cv_iters=-1, verbose=False):
 
 		self.params = params
-		self.param_names = param_names
-		self.param_name_to_index = dict((param_name, index) for index, param_name in enumerate(param_names))
+		self.param_names = list(param_names) + ['random_state']
+		self.param_name_to_index = dict((param_name, index) for index, param_name in enumerate(self.param_names))
 
-		for param in itertools.product(*params):
-			if verbose:
-				print param
+		if n_cv_iters != -1:
+			random_states = range(20)
+		else:
+			random_states = [3]
 
-			model = self.get_model(param)
-			model.fit(self.X_train, self.Y_train)
-			self.validation_auc[param] = evaluate(model, self.X_validation, self.Y_validation)
+		if n_cv_iters != -1:
 
-		for param in self.validation_auc.keys():
-			if self.validation_auc[param] >= self.best_auc:
-				self.best_auc = self.validation_auc[param]
-				self.best_param = param
+			for random_state in random_states:
+
+				np.random.seed(345)
+
+				for cv_iter in range(n_cv_iters):
+
+					par = []
+					for p in params:				
+						if p[0] == 'uniform':
+							v = np.random.uniform(p[1], p[2])
+						elif p[0] == 'randint':
+							v = np.random.randint(p[1], p[2]+1)
+						elif p[0] == 'sample':
+							arr = np.array(p[1:])
+							idx = np.argmax(np.random.random(len(arr)))
+							v = arr[idx]
+						else:
+							raise ValueError("unrecognized option")
+						par.append(v)
+		
+					param = [p for p in par]
+					param.append(random_state)	
+					param = tuple(param)
+
+					model = self.get_model(param)
+					model.fit(self.X_train, self.Y_train)
+					self.validation_auc[param] = evaluate(model, self.X_validation, self.Y_validation)
+			
+		else:
+
+			for par in itertools.product(*params):
+				if verbose:
+					print param
+
+				for random_state in random_states: 
+					param = tuple(list(par) + [random_state])
+					model = self.get_model(param)
+					model.fit(self.X_train, self.Y_train)
+					self.validation_auc[param] = evaluate(model, self.X_validation, self.Y_validation)
+
+		for param in self.validation_auc.keys():	
+			key = param[self.param_name_to_index['random_state']]
+			if self.validation_auc[param] >= self.best_auc_map.get(key, -1):
+				self.best_auc_map[key] = self.validation_auc[param]
+				self.best_param_map[key] = param
+
+		self.best_auc = np.mean(self.best_auc_map.values())
+		self.best_auc_std = np.std(self.best_auc_map.values())
+		self.best_auc_perc = np.percentile(self.best_auc_map.values(), self.perc).tolist()
 
 	def test(self):
-		model = self.get_model(self.best_param)
-		model.fit(self.X_train, self.Y_train)
-		self.test_auc = evaluate(model, self.X_test, self.Y_test)
+		for key in self.best_param_map.keys():
+			model = self.get_model(self.best_param_map[key])
+			model.fit(self.X_train, self.Y_train)
+			self.test_auc_map[key] = evaluate(model, self.X_test, self.Y_test)
+
+		self.test_auc = np.mean(self.test_auc_map.values())
+		self.test_auc_std = np.std(self.test_auc_map.values())
+		self.test_auc_perc = np.percentile(self.test_auc_map.values(), self.perc).tolist()
+
+	def convert(self, field):
+		if type(field) == np.string_:
+			return str(field)
+		elif type(field) == np.bool_:
+			return bool(field)
+		elif type(field) == np.int_:
+			return int(field)
+		elif type(field) == np.float_:
+			return float(field)
+		else:
+			return field 
 
 	def summarize(self):
+
 		params = [list(param) for param in self.params]	
-		s = {'model': self.model, 'test_auc': float(self.test_auc), 'best_param': list(self.best_param), 'best_auc': float(self.best_auc), 'params': params, 'param_names': list(self.param_names)}
+		s = {'model': self.model, 'params': params, 'param_names': list(self.param_names)}
+		s['test_auc'] = float(self.test_auc)
+		s['best_auc'] = float(self.best_auc)
 		s['use_emb'] = self.use_emb	
 		s['n_features'] = int(self.n_features) 
+
+		s['best_auc_std'] = float(self.best_auc_std)
+		s['test_auc_std'] = float(self.test_auc_std)
+	
+		s['best_auc_perc'] = self.best_auc_perc
+		s['test_auc_perc'] = self.test_auc_perc
+	
+		s['best_param_map'] = []
+		s['best_auc_map'] = []
+		s['keys'] = [self.convert(key) for key in np.sort(self.best_param_map.keys())]
+		for key in s['keys']:
+			s['best_param_map'].append([self.convert(p) for p in self.best_param_map[key]])
+			s['best_auc_map'].append(self.convert(self.best_auc_map[key]))
+
+		s['perc'] = self.perc
+	
 		return s
 
 class L(Model):
@@ -110,7 +200,7 @@ class L(Model):
 
 	def get_model(self, param):
 		return sklearn.linear_model.LogisticRegression(penalty=param[self.param_name_to_index['penalty']], \
-			C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']], random_state=random_state)
+			C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']], random_state=param[self.param_name_to_index['random_state']])
 
 class LMax(Model):
 
@@ -132,7 +222,7 @@ class LMax(Model):
 		return X_f, y_f, labels
 
 	def get_model(self, param):
-		return sklearn.linear_model.LogisticRegression(penalty='l1', C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']], random_state=random_state)
+		return sklearn.linear_model.LogisticRegression(penalty='l1', C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']], random_state=param[self.param_name_to_index['random_state']])
 	
 class L2(Model):
 
@@ -171,7 +261,7 @@ class L2(Model):
 		return X_f, y_f, labels
 
 	def get_model(self, param):
-		return sklearn.linear_model.LogisticRegression(penalty='l2', C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']], random_state=random_state)
+		return sklearn.linear_model.LogisticRegression(penalty='l2', C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']], random_state=param[self.param_name_to_index['random_state']])
 
 class L1(Model):
 
@@ -261,7 +351,7 @@ class L1(Model):
 		return X_f, y_f, labels
 
 	def get_model(self, param):
-		return sklearn.linear_model.LogisticRegression(penalty='l1', C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']], random_state=random_state)
+		return sklearn.linear_model.LogisticRegression(penalty='l1', C=param[self.param_name_to_index['C']], fit_intercept=param[self.param_name_to_index['fit_intercept']], random_state=param[self.param_name_to_index['random_state']])
 
 class RandomForest(Model):
 
@@ -319,5 +409,5 @@ class RandomForest(Model):
 			bootstrap = True
 
 		model = sklearn.ensemble.RandomForestClassifier(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, \
-			min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf, max_features=max_features, bootstrap=bootstrap, random_state=random_state)
+			min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf, max_features=max_features, bootstrap=bootstrap, random_state=param[self.param_name_to_index['random_state']])
 		return model
