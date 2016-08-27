@@ -127,5 +127,5 @@ def predict(in_fname, lin_n_cv_iters, n_cv_iters, regularizations, n_labs, age_i
 		fout.write(yaml.dump(results))
 
 	if nn_out_fname is not None:
-		best_model = nn.evaluate(nn_out_fname, n_cv_iters, 20, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, 45, random_seed=345, verbose=verbose)
+		best_model = nn.evaluate(nn_out_fname, n_cv_iters, 20, X_train, Y_train, X_validation, Y_validation, X_test, Y_test, 45, models=['cnn2'], random_seed=345, verbose=verbose)
 
